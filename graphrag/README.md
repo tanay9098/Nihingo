@@ -19,5 +19,7 @@ python graphrag/app.py                 # serves :8010
 # then run the Node app with GRAPHRAG_URL=http://localhost:8010 and an LLM configured (AI mode)
 ```
 
+If FalkorDB is published on a non-default host port (e.g. `-p 6380:6379` because 6379 is taken), set `FALKORDB_PORT=6380` here too, and give the Node app the same value.
+
 Model ids are whatever LiteLLM accepts for your provider. Without these variables `/health` reports
 `configured: false` and `/ask` returns 503, and the Node app falls back to its own retrieval.
