@@ -7,7 +7,8 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { parseTable } from './csv.js';
 import { classifyTable, classifyObjects } from './mapping.js';
-import { vocabularyRecord, kanjiRecord, kanaRecord, grammarRecord, exerciseRecord } from './records.js';
+import { vocabularyRecord, kanjiRecord, kanaRecord, grammarRecord, grammarRowRecord, exerciseRecord } from './records.js';
+import { parsePdfLayout } from './pdf-layouts.js';
 
 const run = promisify(execFile);
 const SKIP = new Set(['sources.json', 'README.md', '.gitkeep']);
@@ -48,7 +49,7 @@ export function provenanceFor(rel, sources) {
 const empty = () => ({ concepts: { vocabulary: [], kanji: [], kana: [], grammar: [] }, exercises: [], lessons: [], refs: [], notes: [], skipped: 0, flagged: 0 });
 
 function fromTable(kind, map, rows, res) {
-  const builders = { vocabulary: vocabularyRecord, kanji: kanjiRecord, kana: kanaRecord };
+  const builders = { vocabulary: vocabularyRecord, kanji: kanjiRecord, kana: kanaRecord, grammar: grammarRowRecord };
   const seen = new Set();
   rows.forEach((row, i) => {
     const rec = builders[kind](row, map, i);
@@ -63,7 +64,9 @@ function fromTable(kind, map, rows, res) {
 function fromObjects(objs, res) {
   const cls = classifyObjects(objs);
   res.detected = cls.kind;
-  if (cls.kind === 'grammar') {
+  if (cls.kind === 'grammar' && cls.table) {
+    fromTable('grammar', cls.map, cls.rows, res);
+  } else if (cls.kind === 'grammar') {
     objs.forEach((o, i) => {
       const rec = grammarRecord(o, i, i + 1);
       if (rec.skip) { res.skipped++; res.notes.push(`item ${i + 1}: skipped (${rec.skip})`); return; }
@@ -105,6 +108,20 @@ async function pdfHandler(f, ctx, res) {
     return;
   }
   res.meta.textChars = text.length;
+  const layout = parsePdfLayout(text);
+  if (layout) {
+    // a structured study list: parse its rows like a table instead of only linking kanji by text match
+    res.detected = layout.kind;
+    res.meta.layout = layout.layout;
+    if (layout.rows.length) fromTable(layout.kind, layout.map, layout.rows.map((r) => ({ ...r, row: `${r.row}, page ${r.page}` })), res);
+    if (layout.strokeOrder) {
+      for (const r of layout.rows) res.refs.push({ conceptId: `k:${r.values.kanji}`, page: r.page, loc: 'stroke-order page', flags: ['layout_match'] });
+    }
+    for (const r of layout.refs || []) res.refs.push({ ...r, loc: 'stroke-order page' });
+    res.notes.unshift(`Recognised layout: ${layout.layout}; ${layout.rows.length ? `${layout.rows.length} entries parsed` : `${res.refs.length} pages linked`} from ${pages || text.split('\f').length} page(s).`, ...layout.notes);
+    res.status = res.skipped ? 'partial' : 'indexed';
+    return;
+  }
   const known = ctx.knownKanji;
   const pageTexts = text.split('\f');
   pageTexts.forEach((pt, i) => {
@@ -152,7 +169,7 @@ function tableHandler(f, res) {
     res.notes.push(`Columns [${headers.join(', ')}] do not match vocabulary / kanji / kana / exercise / grammar layouts; linked as a file only.`);
     return;
   }
-  if (cls.kind === 'grammar' || cls.kind === 'exercise') {
+  if ((cls.kind === 'grammar' && !cls.table) || cls.kind === 'exercise') {
     fromObjects(records.map((r) => r.values), res);
   } else fromTable(cls.kind, cls.map, records, res);
   res.status = 'indexed';

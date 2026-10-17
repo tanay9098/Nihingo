@@ -6,6 +6,7 @@ const TYPE_LABEL = {
   vocab_mc_meaning: 'Word → meaning', vocab_en_to_jp: 'Meaning → word', vocab_mc_reading: 'Reading choice', type_reading: 'Type the reading',
   recall_meaning: 'Recall the meaning', flashcard: 'Flashcard', kana_mc_romaji: 'Kana → romaji', kana_mc_char: 'Romaji → kana',
   kanji_mc_meaning: 'Kanji meaning', kanji_mc_strokes: 'Stroke count', grammar_select: 'Grammar selection', sentence_completion: 'Sentence completion',
+  grammar_mc_meaning: 'Grammar meaning', grammar_mc_point: 'Spot the grammar',
 };
 const ORIGIN = { original: ['Original exercise', 'src-original'], 'generated-from-source': ['Generated from source data', ''] };
 

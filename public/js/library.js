@@ -79,9 +79,9 @@ function detail(dlg, it, open) {
     it.kind === 'kanji' ? h('div', { class: 'glyph', lang: 'ja' }, it.char) : null,
     dl,
     it.example ? h('div', { class: 'card flat' }, h('div', { class: 'jp', lang: 'ja' }, it.example), it.exampleReading ? h('div', { class: 'small muted', lang: 'ja' }, it.exampleReading) : null, h('div', {}, it.exampleMeaning)) : null,
-    it.kind === 'kanji' ? h('div', { class: 'card flat' }, refs.length
+    it.kind === 'kanji' || (it.kind === 'kana' && refs.length) ? h('div', { class: 'card flat' }, refs.length
       ? [h('strong', {}, 'Stroke-order reference material'), h('ul', { class: 'list' }, refs.map((r) => h('li', {}, `${r.title}${r.page ? ` · page ${r.page}` : ''}`, h('span', { class: 'small muted' }, `${r.source}`))))]
-      : h('p', { class: 'small' }, 'No stroke-order reference is installed for this kanji. Only the stroke count above is available (from the source CSV). Drop a stroke-order PDF or image into resources/local/ and run npm run ingest to link it here.')) : null,
+      : h('p', { class: 'small' }, 'No stroke-order reference is installed for this kanji. Only the stroke count above is available (from the source data). Drop a stroke-order PDF or image into resources/local/ and run npm run ingest to link it here.')) : null,
     it.topics.length ? h('div', { class: 'chips' }, it.topics.map((t) => h('span', { class: 'badge' }, t))) : null,
     it.learnerState ? h('p', { class: 'small' }, 'Your memory: ', statusBadge(it.learnerState.status), ` mastery ${it.learnerState.mastery} · ${plural(it.learnerState.attempts, 'attempt')}`) : h('p', { class: 'small muted' }, 'Not practised yet by this learner.'),
     it.related.length ? h('div', {}, h('strong', {}, 'Related in the graph'), h('div', { class: 'chips' }, it.related.map((r) => h('button', { class: 'btn small', onclick: () => open(r.id) }, `${r.rel === 'APPEARS_IN' ? (r.outgoing ? 'appears in' : 'contains') : r.rel.toLowerCase().replace('_', ' ')}: ${r.name}`)))) : null,
@@ -90,7 +90,7 @@ function detail(dlg, it, open) {
 }
 
 async function strokeTab(el, open) {
-  const [refs, kanji] = await Promise.all([api.kanjiRefs(), api.library({ kind: 'kanji', limit: 60 })]);
+  const [refs, kanji] = await Promise.all([api.kanjiRefs(), api.library({ kind: 'kanji', limit: 200 })]);
   el.replaceChildren(h('div', { class: 'stack' },
     h('div', { class: 'card flat' }, h('strong', {}, 'Stroke-order reference'),
       refs.length ? h('p', {}, `${plural(refs.length, 'kanji↔page link')} found in local reference files (linked by text/filename match; stroke data itself is not parsed).`)

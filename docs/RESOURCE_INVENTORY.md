@@ -2,15 +2,24 @@
 
 ## What was found in the repository
 
-When this project started the repository was **empty** (no commits, no files). There were therefore **no pre-existing
-local learning materials** — no PDFs, CSVs, stroke-order sheets, images or audio — to inspect or ingest. Nothing here
-pretends otherwise:
+When this project started the repository was **empty**, so the app shipped with its own original content only
+(`resources/original/`, below). The learner has since added their own study material under `resources/local/`:
 
-| Question | Answer |
-| --- | --- |
-| Local stroke-order PDFs / images? | **None existed.** The app shows stroke *counts* (from `kanji.csv`) only and never claims stroke-order animation or coordinates. The ingestion pipeline can link stroke-order PDFs/images dropped into `resources/local/` (see below). |
-| Local vocabulary / grammar CSVs? | None existed. `resources/original/` contains content **written for this project**, labelled *original* everywhere in the UI. |
-| Local audio? | None. No audio is bundled or downloaded. |
+| File (`resources/local/…`) | What it is | How it is ingested | Source / license (from `sources.json`) |
+| --- | --- | --- | --- |
+| `hanabira_jlpt_n5_grammar.csv` | 136 JLPT N5 grammar points (meaning, formation, example + romaji + translation) | Grammar concepts; *Grammar meaning*, *Spot the grammar* and flashcard exercises are generated from each row | hanabira.org; license not stated inside the CSV |
+| `hanabira_jlpt_n5_vocabulary.pdf` | 662 N5 words: reading, gloss, definition, example sentence | Dictionary-entry layout parsed into vocabulary (with examples) | hanabira.org, CC BY 4.0 |
+| `jlpt-n5-vocabulary-list.pdf` | 743 N5 words: reading, meaning | Word-list layout parsed into vocabulary; 29 meanings truncated in the PDF keep only their complete parts; 13 repeated words skipped | Nihongo Master; license not stated |
+| `jlpt-n5-kanji-list.pdf` | 103 N5 kanji: meaning, on/kun, stroke count | Kanji-list layout parsed into kanji | Nihongo Master; license not stated |
+| `hanabira_jlpt_n5_kanji_writing.pdf` | 79 kanji writing sheets with step-by-step stroke order | Parsed into kanji, and each kanji is linked to **its stroke-order page** (`REFERENCES {page}`) | hanabira.org, CC BY-SA 4.0 |
+| `kana-stroke-order/…workbook….pdf` | NIHONGO ICHIBAN hiragana + katakana workbook | Each practice page is labelled with the character's Unicode code point ("Search code: 3042" = あ); all 92 kana are linked to their stroke-order page | © Chinriu Honten Ltd., all rights reserved: personal use only, not redistributable |
+
+The app still parses no stroke *coordinates* and animates nothing: stroke-order pages are references the learner opens.
+
+**Overlapping lists.** The first resource to define a concept owns it (`primarySource`). A later file that lists the same
+word or kanji only fills properties that are still empty (e.g. a JLPT level or an example sentence) and never overwrites
+the original content or generates a second set of exercises for it. Concepts from non-original files are ordered after the
+curated ones, so the planner introduces the original material first.
 
 ## Content created for the app (`resources/original/`, MIT, authored for this project)
 
@@ -43,10 +52,11 @@ the original vocabulary: `level = unknown`. `kanji.csv` carries a note that "N5-
 
 | Format | Handling |
 | --- | --- |
-| CSV / TSV | Delimiter auto-detected (RFC-4180 quoting); **actual headers and values are inspected** (aliases such as `word/vocab/japanese`, `reading/kana`, `meaning/english`) and classified as vocabulary / kanji / kana / exercise / grammar. A `kanji` column of multi-character words is treated as vocabulary. Unrecognised layouts → `unparsed`, linked as a file only. Rows missing a word are skipped; missing reading/meaning are flagged. |
+| CSV / TSV | Delimiter auto-detected (RFC-4180 quoting); **actual headers and values are inspected** (aliases such as `word/vocab/japanese`, `reading/kana`, `meaning/english`, `grammar point/formation/example (japanese)`; spreadsheet headers like `Example (English)` are normalised to `example_english`) and classified as vocabulary / kanji / kana / exercise / grammar. A `kanji` column of multi-character words is treated as vocabulary. Unrecognised layouts → `unparsed`, linked as a file only. Rows missing a word are skipped; missing reading/meaning are flagged. |
 | JSON / JSONL | Arrays of objects classified the same way; the Lazy Benkyou catalog shape is recognised; invalid lines are reported and skipped. |
 | Markdown / text | Stored as a linked reference (title extracted); not split into concepts automatically. |
-| PDF | `pdfinfo`/`pdftotext` (poppler) when installed: page count and text are extracted; kanji already in the library are linked to the **pages** they appear on (`REFERENCES {page}`), only for pages with ≤ 12 distinct known kanji so dense prose pages don't create noise. Whole PDFs are never put in graph properties. Image-only PDFs are linked as visual references. Without poppler the PDF is linked as a file. |
+| PDF (study lists) | With poppler, the text is first checked for known study-list layouts (`server/ingestion/pdf-layouts.js`): `# / Word / Reading / Meaning` tables, `# / Kanji / Meaning / On'yomi / Kun'yomi / Strokes` tables, `word 【reading】 — gloss` dictionary entries with examples, kanji writing sheets (`音`/`訓` blocks, linked to their page), and kana pages labelled with a Unicode code point. Matching rows become concepts exactly like CSV rows. |
+| PDF (other) | `pdfinfo`/`pdftotext` (poppler) when installed: page count and text are extracted; kanji already in the library are linked to the **pages** they appear on (`REFERENCES {page}`), only for pages with ≤ 12 distinct known kanji so dense prose pages don't create noise. Whole PDFs are never put in graph properties. Image-only PDFs are linked as visual references. Without poppler the PDF is linked as a file. |
 | Images | PNG/JPEG signature checked; a kanji in the file name (e.g. `日.png`) links the image to that kanji. |
 | Audio / video | Linked only; not transcribed or redistributed. |
 | Anything else | `unparsed` with a reason; never fatal. |
@@ -56,21 +66,50 @@ counts never grow). Files removed from disk are marked `missing`. Provenance/lic
 (unlisted files default to *license unknown — kept local, never redistributed*).
 
 Verified with real runs: the PDF path was exercised with a generated PDF containing Japanese text
-(`tests/fixtures/kanji-sample.pdf`) and a corrupt PDF; there is **no real stroke-order PDF** in the repository to test against.
+(`tests/fixtures/kanji-sample.pdf`) and a corrupt PDF, and every study-list layout against the real PDFs in `resources/local/`
+(unit tests in `tests/unit.test.js` cover each layout with synthetic text).
 
 ## Discovered files (generated by `npm run ingest`)
 
 <!-- BEGIN GENERATED -->
-_Generated by `npm run ingest` on 2026-10-17T08:00:09.676Z. 6 file(s) discovered under `resources/`._
+_Generated by `npm run ingest` on 2026-10-17T10:23:27.168Z. 12 file(s) discovered under `resources/`._
 
 | File | Format | Size | Status | Detected as | Records | Source / license |
 | --- | --- | ---: | --- | --- | --- | --- |
+| `local/hanabira_jlpt_n5_grammar.csv` | csv | 39419 | indexed | grammar | 136 grammar, 408 exercises | hanabira.org — JLPT N5 grammar (CSV export) — Not stated inside the CSV. hanabira.org publishes its companion N5 PDFs under CC BY 4.0; verify before redistributing. |
 | `original/kanji.csv` | csv | 2055 | indexed | kanji | 26 kanji, 52 exercises | Nihongo Graph — original content — MIT (same as this repository). Written for this project; not copied from any textbook or website. |
 | `original/vocabulary.csv` | csv | 6739 | indexed | vocabulary | 56 vocabulary, 330 exercises | Nihongo Graph — original content — MIT (same as this repository). Written for this project; not copied from any textbook or website. |
 | `external/lazybenkyou_videos.json` | json | 11148 | indexed | listening-catalog | 15 lessons | Lazy Benkyou — Content © Lazy Benkyou Studios LLC. Only titles, ids, dates and thumbnail URLs are stored; videos stay on YouTube. |
 | `original/grammar.json` | json | 7447 | indexed | grammar | 16 grammar | Nihongo Graph — original content — MIT (same as this repository). Written for this project; not copied from any textbook or website. |
 | `original/kana.json` | json | 7264 | indexed | kana | 92 kana, 184 exercises | Nihongo Graph — original content — MIT (same as this repository). Written for this project; not copied from any textbook or website. |
 | `original/exercises.jsonl` | jsonl | 8046 | indexed | exercise | 26 exercises | Nihongo Graph — original content — MIT (same as this repository). Written for this project; not copied from any textbook or website. |
+| `local/hanabira_jlpt_n5_kanji_writing.pdf` | pdf | 1228511 | indexed | kanji | 79 kanji, 112 exercises, 79 references | hanabira.org — JLPT N5 Kanji Writing Practice (PDF) — CC BY-SA 4.0, as printed in the file. Attribution: hanabira.org. |
+| `local/hanabira_jlpt_n5_vocabulary.pdf` | pdf | 1505237 | indexed | vocabulary | 662 vocabulary, 3344 exercises | hanabira.org — JLPT N5 Vocabulary List (PDF) — CC BY 4.0, as printed in the file (definitions and example sentences © hanabira.org; JLPT lists based on Jonathan Waller's JLPT Resources, CC BY). Attribution: hanabira.org. |
+| `local/jlpt-n5-kanji-list.pdf` | pdf | 323111 | indexed | kanji | 103 kanji, 42 exercises | Nihongo Master — JLPT N5 lists (PDF) — Not stated in the file (free download from nihongomaster.com). Kept local; not redistributed by this app. |
+| `local/jlpt-n5-vocabulary-list.pdf` | pdf | 476420 | partial | vocabulary | 730 vocabulary, 1078 exercises | Nihongo Master — JLPT N5 lists (PDF) — Not stated in the file (free download from nihongomaster.com). Kept local; not redistributed by this app. |
+| `local/kana-stroke-order/toaz_info_hiragana_and_katakana_workbook_pr_8bef5ec94774c4e7175ff453da45e03a.pdf` | pdf | 4776634 | indexed | kana-reference | 92 references | NIHONGO ICHIBAN — Print-Yourself Hiragana + Katakana Workbook (PDF) — © 2011 Chinriu Honten Limited, all rights reserved. For personal printing/study only; must not be redistributed. |
+
+### Parser notes and flagged records
+
+- `local/hanabira_jlpt_n5_kanji_writing.pdf` (indexed):
+  - Recognised layout: kanji writing sheets (stroke-order pages); 79 entries parsed from 18 page(s).
+  - 23 kanji entries were already defined by another resource: only empty fields were filled.
+- `local/hanabira_jlpt_n5_vocabulary.pdf` (indexed):
+  - Recognised layout: dictionary entries (word 【reading】 — gloss + example); 662 entries parsed from 58 page(s).
+  - 51 vocabulary entries were already defined by another resource: only empty fields were filled.
+- `local/jlpt-n5-kanji-list.pdf` (indexed):
+  - Recognised layout: kanji list (# / kanji / meaning / on / kun / strokes); 103 entries parsed from 4 page(s).
+  - 82 kanji entries were already defined by another resource: only empty fields were filled.
+- `local/jlpt-n5-vocabulary-list.pdf` (partial):
+  - Recognised layout: word list (# / word / reading / meaning); 743 entries parsed from 24 page(s).
+  - 29 meaning(s) were cut off ("…") in the PDF; kept the complete parts only.
+  - row 62, page 2: duplicate of v:家, skipped
+  - row 143, page 5: duplicate of v:外, skipped
+  - row 631, page 20: duplicate of v:何方, skipped
+  - row 712, page 23: duplicate of v:方, skipped
+  - … 10 more
+- `local/kana-stroke-order/toaz_info_hiragana_and_katakana_workbook_pr_8bef5ec94774c4e7175ff453da45e03a.pdf` (indexed):
+  - Recognised layout: kana stroke-order pages (code point labels); 92 pages linked from 108 page(s).
 
 ### Files that could not be parsed
 

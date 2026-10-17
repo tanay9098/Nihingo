@@ -87,7 +87,35 @@ export function kanjiExercises(kanji) {
     if (p.strokes > 0) {
       const nums = kanji.filter((o) => o.id !== k.id && o.props.strokes > 0).map((o) => String(o.props.strokes));
       out.push(mc(`ex:kanji:mc_strokes:${k.id}`, 'kanji_mc_strokes', k.id, `${p.char} — how many strokes?`, String(p.strokes), nums,
-        { explanation: `${p.char} is written with ${p.strokes} strokes (stroke count from the source CSV; stroke ORDER is not included).` }));
+        { explanation: `${p.char} is written with ${p.strokes} strokes (stroke count from the source data; stroke ORDER is not included).` }));
+    }
+  }
+  return out;
+}
+
+// The Japanese part of a grammar point's name: "A が いちばん～ (A ga ichiban～)" -> "がいちばん".
+const grammarCore = (name) => name.replace(/\(.*?\)/g, '').replace(/[A-Za-z0-9～~〜。、.,\s+…]/g, '');
+
+export function grammarExercises(grammar) {
+  const out = [];
+  for (const g of grammar) {
+    const p = g.props;
+    const others = grammar.filter((o) => o.id !== g.id);
+    if (p.explanation) {
+      out.push(mc(`ex:grammar:mc_meaning:${g.id}`, 'grammar_mc_meaning', g.id, p.name, p.explanation, others.map((o) => o.props.explanation).filter(Boolean),
+        { explanation: `${p.name}: ${p.explanation}${p.pattern ? ` Pattern: ${p.pattern}` : ''}` }));
+    }
+    if (p.example) {
+      // a distractor whose Japanese also occurs in the sentence could be a second right answer, so leave those out
+      const pool = others.filter((o) => { const c = grammarCore(o.props.name); return !c || !p.example.includes(c); }).map((o) => o.props.name);
+      out.push(mc(`ex:grammar:mc_point:${g.id}`, 'grammar_mc_point', g.id, `Which grammar point does this sentence use?\n${p.example}${p.exampleMeaning ? `\n(${p.exampleMeaning})` : ''}`,
+        p.name, pool, { explanation: `${p.example} uses ${p.name}${p.explanation ? ` — ${p.explanation}` : ''}` }));
+    }
+    if (p.pattern || p.explanation) {
+      out.push({ id: `ex:grammar:flash:${g.id}`, conceptId: g.id, props: {
+        type: 'flashcard', format: 'flashcard', prompt: p.name, answer: p.pattern || p.explanation, choices: '', accept: '[]', alsoValid: '[]', checker: '',
+        origin: 'generated-from-source', explanation: [p.explanation, p.pattern && `Pattern: ${p.pattern}`, p.example && `e.g. ${p.example}`].filter(Boolean).join(' · '),
+      } });
     }
   }
   return out;

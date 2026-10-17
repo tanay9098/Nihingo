@@ -24,7 +24,7 @@ test('ingestion: real resources are discovered, parsed with their actual schema 
   assert.equal(byPath['original/exercises.jsonl'].detected, 'exercise');
   assert.equal(byPath['external/lazybenkyou_videos.json'].detected, 'listening-catalog');
   for (const f of env.report.files) assert.match(f.checksum, /^[0-9a-f]{64}$/);
-  assert.equal(await count('MATCH (v:Vocabulary) RETURN count(v) AS n'), 56);
+  assert.equal(await count("MATCH (:Resource {id: 'res:original/vocabulary.csv'})-[:CONTAINS]->(v:Vocabulary) RETURN count(v) AS n"), 56);
   // provenance is preserved on the Resource nodes
   const r = (await client.query("MATCH (r:Resource {id: 'res:original/vocabulary.csv'}) RETURN r.source AS s, r.license AS l, r.origin AS o"))[0];
   assert.equal(r.o, 'original'); assert.match(r.l, /MIT/);
@@ -89,6 +89,22 @@ test('ingestion: PDF text is extracted and kanji are linked to the pages they ap
     const rows = await client.query("MATCH (:Resource {path: 'kanji-sample.pdf'})-[x:REFERENCES]->(k:Kanji) RETURN k.char AS k, x.page AS p ORDER BY p, k");
     assert.deepEqual(rows.map((r) => `${r.k}@${r.p}`), ['日@1', '月@1', '水@1', '食@2']);   // page 3 lists 26 kanji: too dense to be a reference page
     assert.match(f.notes[0], /stroke-order data itself is NOT parsed/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('ingestion: a local file never overwrites a concept another resource defined; it only fills empty fields', { skip }, async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'overlap-'));
+  try {
+    await writeFile(path.join(dir, 'n5.csv'), 'word,reading,meaning,level\n水,すい,WRONG,N5\n空気,くうき,air,N4\n');
+    const report = await ingestResources({ catalog: new CatalogStore(client), client, dir });
+    assert.equal(report.files[0].counts.vocabulary, 2);
+    assert.equal(report.files[0].counts.exercises, 6);              // exercises only for the new word
+    const w = (await client.query("MATCH (v:Vocabulary {id: 'v:水'}) RETURN v.meaning AS m, v.reading AS r, v.level AS l, v.primarySource AS s"))[0];
+    assert.deepEqual(w, { m: 'water', r: 'みず', l: 'N5', s: 'res:original/vocabulary.csv' });
+    assert.equal((await client.query("MATCH (e:Exercise {id: 'ex:vocab:mc_meaning:v:水'}) RETURN e.answer AS a"))[0].a, 'water');
+    assert.equal(await count("MATCH (:Resource {path: 'n5.csv'})-[:CONTAINS]->(:Vocabulary {id: 'v:水'}) RETURN count(*) AS n"), 1);
+    // new local material is planned after the curated original content
+    assert.ok((await client.query("MATCH (v:Vocabulary {id: 'v:空気'}) RETURN v.order AS o"))[0].o >= 100000);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

@@ -30,7 +30,7 @@ test('api: boots, serves the static frontend and consistent JSON envelopes', { s
   assert.match(page.headers.get('content-security-policy'), /script-src 'self'/);
   const h = await call('GET', '/api/health');
   assert.equal(h.json.ok, true); assert.equal(h.json.data.falkordb.ok, true); assert.equal(h.json.data.mode, 'demo');
-  assert.equal(h.json.data.counts.vocabulary, 56);
+  assert.ok(h.json.data.counts.vocabulary >= 56);                  // 56 original words + whatever is in resources/local/
 });
 
 test('api: no credentials or keys are ever exposed to the browser', { skip }, async () => {
@@ -73,9 +73,10 @@ test('api: endpoints return real data; validation errors are consistent', { skip
 
 test('api: injection attempts are inert (queries are parameterised)', { skip }, async () => {
   const q = `x'}) MATCH (n) DETACH DELETE n //`;
+  const before = (await call('GET', '/api/health')).json.data.counts.vocabulary;
   const r = await call('GET', '/api/library?q=' + encodeURIComponent(q));
   assert.equal(r.status, 200);
-  assert.equal((await call('GET', '/api/health')).json.data.counts.vocabulary, 56);
+  assert.equal((await call('GET', '/api/health')).json.data.counts.vocabulary, before);
   const g = await call('POST', '/api/tutor/ask', { question: `"} RETURN 1 //` });
   assert.equal(g.status, 200);
 });

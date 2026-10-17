@@ -5,7 +5,9 @@ import { updateStudyState, wilsonLower, EMPTY_STATE, inferBestFormat, DAY_MS } f
 import { parseDelimited, parseTable } from '../server/ingestion/csv.js';
 import { classifyTable } from '../server/ingestion/mapping.js';
 import { decide } from '../server/agents/planner.js';
-import { vocabularyExercises } from '../server/ingestion/exercises.js';
+import { vocabularyExercises, grammarExercises } from '../server/ingestion/exercises.js';
+import { grammarRowRecord } from '../server/ingestion/records.js';
+import { parsePdfLayout } from '../server/ingestion/pdf-layouts.js';
 import { parseFeed } from '../scripts/refresh-listening-catalog.js';
 import { appMode } from '../server/config.js';
 import { readFile } from 'node:fs/promises';
@@ -104,6 +106,53 @@ test('column inspection classifies real files by headers AND values', async () =
   assert.equal(classifyTable(t.headers, t.records).kind, 'vocabulary');
   const junk = parseTable('foo,bar\n1,2\n');
   assert.equal(classifyTable(junk.headers, junk.records).kind, 'unrecognized');
+});
+
+test('grammar spreadsheets ("Grammar Point", "Formation", "Example (Japanese)"…) become grammar records + exercises', () => {
+  const { headers, records } = parseTable([
+    '"Grammar Point","Meaning","Formation","Example (Japanese)","Example (Romaji)","Example (English)","JLPT Level"',
+    '"A が いちばん～ (A ga ichiban～)","the most","Noun + が + いちばん","寿司が一番好きです。","Sushi ga ichiban suki desu.","I like sushi the most.","JLPT N5"',
+    '"Verb ないで ください (〜naide kudasai)","please don\'t","Verb-ない + でください","ここで寝ないでください。","Koko de nenaide kudasai.","Please don\'t sleep here.","JLPT N5"',
+    '"〜から (kara)","because","Clause + から","雨だから、行きません。","Ame da kara, ikimasen.","Because it rains, I won\'t go.","JLPT N5"',
+  ].join('\n'));
+  const cls = classifyTable(headers, records);
+  assert.equal(cls.kind, 'grammar'); assert.equal(cls.table, true);
+  const recs = records.map((r, i) => grammarRowRecord(r, cls.map, i));
+  assert.equal(recs[0].id, 'g:A が いちばん～ (A ga ichiban～)');
+  assert.equal(recs[0].props.pattern, 'Noun + が + いちばん');
+  assert.equal(recs[0].props.explanation, 'the most');
+  assert.equal(recs[0].props.example, '寿司が一番好きです。'); assert.equal(recs[0].props.exampleMeaning, 'I like sushi the most.');
+  assert.equal(recs[0].props.level, 'JLPT N5');
+  const ex = grammarExercises(recs);
+  assert.deepEqual(ex.map((e) => e.props.type).sort(), ['flashcard', 'flashcard', 'flashcard', 'grammar_mc_meaning', 'grammar_mc_meaning', 'grammar_mc_meaning', 'grammar_mc_point', 'grammar_mc_point', 'grammar_mc_point']);
+  for (const e of ex.filter((x) => x.props.format === 'multiple_choice')) assert.ok(JSON.parse(e.props.choices).includes(e.props.answer));
+  // a distractor whose Japanese also appears in the sentence would be a second right answer: never offered
+  const kara = ex.find((e) => e.id === 'ex:grammar:mc_point:g:〜から (kara)');
+  assert.ok(JSON.parse(kara.props.choices).every((c) => c === kara.props.answer || !c.includes('から')));
+  assert.deepEqual(grammarExercises(recs), ex);                    // deterministic
+});
+
+test('PDF study lists are recognised by layout; anything else is left alone', () => {
+  const words = parsePdfLayout('JLPT N5 Vocabulary List\n#        Word        Reading        Meaning\n\n1        歯          は             tooth\n2        在る        ある           to be; to exist; to li…\f3        失礼します   しつれいします   excuse me\n');
+  assert.equal(words.kind, 'vocabulary');
+  assert.deepEqual(words.rows.map((r) => [r.values.word, r.values.meaning, r.page]), [['歯', 'tooth', 1], ['在る', 'to be; to exist', 1], ['失礼します', 'excuse me', 2]]);
+  assert.equal(words.rows[0].values.level, 'N5');
+  const kanji = parsePdfLayout("#       Kanji       Meaning            On'yomi      Kun'yomi     Strokes\n1       日           day, sun, Japan    ニチ          ひ            4\n2       雨           rain               ウ            あめ          8\n");
+  assert.deepEqual(kanji.rows.map((r) => r.values), [
+    { kanji: '日', meaning: 'day, sun, Japan', onyomi: 'ニチ', kunyomi: 'ひ', strokes: '4', level: '' },
+    { kanji: '雨', meaning: 'rain', onyomi: 'ウ', kunyomi: 'あめ', strokes: '8', level: '' }]);
+  const entries = parsePdfLayout(['会う 【あう】 — to meet      0001', '', 'Going to the same place.', '  公園で友だちに会う。', '  I meet a friend.',
+    'あそこ — over there      0002', '見る 観る 【みる】 — to see      0003', '青 【あお】 — blue   0004', '赤 【あか】 — red   0005'].join('\n'));
+  assert.equal(entries.kind, 'vocabulary');
+  assert.deepEqual(entries.rows[0].values, { word: '会う', reading: 'あう', meaning: 'to meet', definition: 'Going to the same place.', example: '公園で友だちに会う。', exampleEn: 'I meet a friend.', level: '' });
+  assert.equal(entries.rows[1].values.reading, 'あそこ');           // kana-only word: the word is its own reading
+  assert.equal(entries.rows[2].values.word, '見る/観る');
+  const sheet = parsePdfLayout(['p', ' 日', '      day · sun', '      音 ニチ、ジツ', '      訓 ひ   4 strokes', ' 一       one', '      音 イチ', '      訓 ひと-  1 stroke', '\f 国        country', '      音 コク', '      訓 くに  8 strokes'].join('\n'));
+  assert.equal(sheet.strokeOrder, true);
+  assert.deepEqual(sheet.rows.map((r) => [r.values.kanji, r.values.meaning, r.values.strokes, r.page]), [['日', 'day, sun', '4', 1], ['一', 'one', '1', 1], ['国', 'country', '8', 2]]);
+  const kana = parsePdfLayout(['あ', 'い', 'う', 'ア', 'イ'].map((c) => `Strokes Reading\nSearch code: ${c.codePointAt(0).toString(16).toUpperCase()}`).join('\f'));
+  assert.deepEqual(kana.refs.map((r) => `${r.conceptId}@${r.page}`), ['kana:あ@1', 'kana:い@2', 'kana:う@3', 'kana:ア@4', 'kana:イ@5']);
+  assert.equal(parsePdfLayout('日本語の文章です。\n月曜日に水を飲みます。'), null);
 });
 
 test('exercise generation is deterministic (idempotent re-ingestion)', () => {

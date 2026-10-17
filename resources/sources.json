@@ -14,6 +14,41 @@
       "license": "Content © Lazy Benkyou Studios LLC. Only titles, ids, dates and thumbnail URLs are stored; videos stay on YouTube.",
       "origin": "external",
       "url": "https://lazybenkyou.com/"
+    },
+    {
+      "prefix": "local/hanabira_jlpt_n5_vocabulary",
+      "source": "hanabira.org — JLPT N5 Vocabulary List (PDF)",
+      "license": "CC BY 4.0, as printed in the file (definitions and example sentences © hanabira.org; JLPT lists based on Jonathan Waller's JLPT Resources, CC BY). Attribution: hanabira.org.",
+      "origin": "local",
+      "url": "https://hanabira.org/"
+    },
+    {
+      "prefix": "local/hanabira_jlpt_n5_kanji_writing",
+      "source": "hanabira.org — JLPT N5 Kanji Writing Practice (PDF)",
+      "license": "CC BY-SA 4.0, as printed in the file. Attribution: hanabira.org.",
+      "origin": "local",
+      "url": "https://hanabira.org/kanji"
+    },
+    {
+      "prefix": "local/hanabira_jlpt_n5_grammar",
+      "source": "hanabira.org — JLPT N5 grammar (CSV export)",
+      "license": "Not stated inside the CSV. hanabira.org publishes its companion N5 PDFs under CC BY 4.0; verify before redistributing.",
+      "origin": "local",
+      "url": "https://hanabira.org/"
+    },
+    {
+      "prefix": "local/jlpt-n5-",
+      "source": "Nihongo Master — JLPT N5 lists (PDF)",
+      "license": "Not stated in the file (free download from nihongomaster.com). Kept local; not redistributed by this app.",
+      "origin": "local",
+      "url": "https://www.nihongomaster.com/"
+    },
+    {
+      "prefix": "local/kana-stroke-order/",
+      "source": "NIHONGO ICHIBAN — Print-Yourself Hiragana + Katakana Workbook (PDF)",
+      "license": "© 2011 Chinriu Honten Limited, all rights reserved. For personal printing/study only; must not be redistributed.",
+      "origin": "local",
+      "url": "https://nihongoichiban.com/"
     }
   ],
   "default": {

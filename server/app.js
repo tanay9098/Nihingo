@@ -67,7 +67,7 @@ export function createApp(ctx, cfg = config) {
     if (kind && !['vocabulary', 'kanji', 'kana', 'grammar'].includes(kind)) throw new HttpError(400, 'Unknown kind', 'validation');
     ok(res, await req.s.catalog.search({
       q: str(req.query.q, 'q', { max: 80, required: false }), kind, topic: str(req.query.topic, 'topic', { max: 40, required: false }),
-      limit: int(req.query.limit, 24, 1, 60), offset: int(req.query.offset, 0, 0, 5000),
+      limit: int(req.query.limit, 24, 1, 200), offset: int(req.query.offset, 0, 0, 5000),
     }));
   }));
   api.get('/library/exercises', asyncH(async (req, res) => ok(res, await req.s.catalog.exerciseSummary())));

@@ -43,6 +43,18 @@ export class CatalogStore {
     );
   }
 
+  /** Current properties of existing concepts, plus which resources already contain/explain them. */
+  async existingConcepts(ids) {
+    if (!ids.length) return new Map();
+    const rows = await this.c.query(
+      `MATCH (c:Concept) WHERE c.id IN $ids
+       OPTIONAL MATCH (r:Resource)-[:CONTAINS|EXPLAINS]->(c)
+       RETURN c.id AS id, properties(c) AS props, collect(r.id) AS sources`,
+      { ids },
+    );
+    return new Map(rows.map((r) => [r.id, r]));
+  }
+
   async linkResource(resId, rows, rel = 'CONTAINS') {
     if (!rows.length) return;
     if (!['CONTAINS', 'EXPLAINS', 'REFERENCES'].includes(rel)) throw new Error('bad rel');
