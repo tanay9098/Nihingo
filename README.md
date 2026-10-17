@@ -86,7 +86,7 @@ Run in the development sandbox on **Oct 17 2026**:
 * ✅ `docker compose config` validates the Compose file; the Lazy Benkyou links, channel feed and each video's embeddability (oEmbed) were checked live against YouTube.
 * ❌ **Not run here:** `docker compose up` / the Docker image build (no Docker daemon in the sandbox — the Dockerfile and Compose were written to the official docs, the `falkordb/falkordb:v4.18.9` tag was confirmed to exist on Docker Hub,
   but the volume path could not be read from the image, so Compose pins Redis' `--dir /data` explicitly); **AI mode** with a real LLM; the **GraphRAG-SDK** `ingest`/`completion` calls (only its API signatures and a live FalkorDB connection were verified);
-  actual **YouTube playback** (the sandbox can't stream video; embeds and fallbacks are in place); a real-world **stroke-order PDF** (none exists in the repo).
+  actual **YouTube playback** (the sandbox can't stream video; embeds and fallbacks are in place). There is no stroke *animation*: the stroke-order PDFs in `resources/local/` are linked by page, not parsed into strokes.
 
 ## Known limitations
 * No authentication: two local profiles (`learner:demo`, `learner:me`), not accounts.

@@ -15,6 +15,10 @@ const ALIASES = {
   exampleJp: ['example_jp', 'example', 'sentence', 'example_sentence', 'example_japanese', '例文'],
   exampleReading: ['example_reading', 'sentence_reading', 'example_kana'],
   exampleEn: ['example_en', 'example_translation', 'sentence_translation', 'example_english'],
+  exampleRomaji: ['example_romaji', 'sentence_romaji'],
+  grammar: ['grammar_point', 'grammar', 'grammar_pattern', '文法'],
+  pattern: ['pattern', 'formation', 'structure', 'construction', '接続'],
+  explanation: ['explanation', 'usage', 'description', '説明'],
   onyomi: ['onyomi', 'on', "on'yomi", 'on_reading', '音読み'],
   kunyomi: ['kunyomi', 'kun', "kun'yomi", 'kun_reading', '訓読み'],
   strokes: ['strokes', 'stroke_count', 'stroke', 'strokecount', '画数'],
@@ -22,8 +26,11 @@ const ALIASES = {
   note: ['jlpt_note', 'note', 'notes', 'comment'],
 };
 
+// "Example (Japanese)" -> "example_japanese", so spreadsheet-style headers match the snake_case aliases.
+const normHeader = (h) => h.toLowerCase().trim().replace(/[\s()\-]+/g, '_').replace(/^_+|_+$/g, '');
+
 export function columnMap(headers) {
-  const lower = headers.map((h) => h.toLowerCase().trim());
+  const lower = headers.map(normHeader);
   const map = {};
   for (const [role, names] of Object.entries(ALIASES)) {
     const idx = lower.findIndex((h) => names.includes(h));
@@ -54,6 +61,8 @@ export function classifyTable(headers, rows) {
   if (wordCol && (col('reading') || col('meaning'))) return { kind: 'vocabulary', map: { ...map, word: wordCol } };
   if (lower.has('type') && lower.has('answer') && (lower.has('prompt') || lower.has('question'))) return { kind: 'exercise', map };
   if ((lower.has('pattern') || lower.has('explanation')) && (lower.has('name') || lower.has('id'))) return { kind: 'grammar', map };
+  // spreadsheet layout: one grammar point per row ("Grammar Point", "Meaning", "Formation", examples…)
+  if (col('grammar') && (col('pattern') || col('meaning') || col('explanation'))) return { kind: 'grammar', map, table: true };
   return { kind: 'unrecognized', map };
 }
 

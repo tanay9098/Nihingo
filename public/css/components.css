@@ -44,7 +44,7 @@ textarea { width: 100%; min-height: 72px; }
 .progress-dots i { width: 100%; max-width: 40px; height: 6px; border-radius: 99px; background: var(--line); }
 .progress-dots i.done { background: var(--ok); } .progress-dots i.wrong { background: var(--bad); } .progress-dots i.cur { background: var(--accent); }
 .prompt { font-family: var(--jp); font-size: clamp(1.8rem, 6vw, 2.8rem); text-align: center; margin: 12px 0 4px; word-break: keep-all; }
-.prompt.long { font-size: 1.35rem; line-height: 1.6; }
+.prompt.long { font-size: 1.35rem; line-height: 1.6; white-space: pre-line; }
 .prompt-sub { text-align: center; color: var(--ink-2); margin-bottom: 14px; }
 .choices { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
 @media (max-width: 420px) { .choices { grid-template-columns: 1fr; } }

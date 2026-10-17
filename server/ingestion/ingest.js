@@ -2,10 +2,17 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { scanDir, describeFile, handleFile, provenanceFor } from './files.js';
-import { vocabularyExercises, kanaExercises, kanjiExercises } from './exercises.js';
+import { vocabularyExercises, kanaExercises, kanjiExercises, grammarExercises } from './exercises.js';
 
 const ORDER = { '.csv': 0, '.tsv': 0, '.json': 1, '.jsonl': 2, '.pdf': 8 };
 const rank = (abs) => ORDER[path.extname(abs).toLowerCase()] ?? 5;
+
+// Concepts from non-original files sort after the curated ones in the planner's "next new item" order.
+const LOCAL_ORDER = 100000;
+// Properties another resource may fill in on a concept it does not own (never ids, order or search text).
+const FILLABLE = new Set(['reading', 'romaji', 'meaning', 'pos', 'example', 'exampleReading', 'exampleMeaning', 'level',
+  'onyomi', 'kunyomi', 'strokes', 'pattern', 'explanation']);
+const isEmpty = (v) => v == null || v === '' || v === 'unknown' || v === -1 || (Array.isArray(v) && !v.length);
 
 async function loadSources(dir) {
   const fallback = { source: 'Local resource (user-supplied)', license: 'Unknown — kept local and never redistributed by this app.', origin: 'local', url: '' };
@@ -51,11 +58,30 @@ export async function ingestResources({ catalog, client, dir, force = false, log
       },
     });
 
-    // concepts
+    // concepts. The first resource to define a concept owns it; a later file listing the same word/kanji
+    // (e.g. a downloaded N5 list overlapping the original vocabulary) only fills properties that are still
+    // empty, never overwrites them, and does not generate a second set of exercises for it.
+    const owned = new Set();
     for (const kind of ['vocabulary', 'kanji', 'kana', 'grammar']) {
       const recs = res.concepts[kind];
       if (!recs.length) continue;
-      await catalog.upsertConcepts(kind, recs.map((r) => ({ id: r.id, props: r.props })));
+      if (prov.origin !== 'original') recs.forEach((r) => { r.props.order += LOCAL_ORDER; });   // curated content is planned first
+      const existing = await catalog.existingConcepts(recs.map((r) => r.id));
+      const rows = [];
+      for (const r of recs) {
+        const cur = existing.get(r.id);
+        const owner = cur?.props.primarySource ?? (cur?.sources.includes(id) ? id : null);
+        if (!cur || owner === id) {
+          owned.add(r.id);
+          rows.push({ id: r.id, props: { ...r.props, primarySource: id } });
+          continue;
+        }
+        const patch = Object.fromEntries(Object.entries(r.props).filter(([k, v]) => FILLABLE.has(k) && isEmpty(cur.props[k]) && !isEmpty(v)));
+        if (Object.keys(patch).length) rows.push({ id: r.id, props: patch });
+      }
+      const shared = recs.filter((r) => !owned.has(r.id)).length;
+      if (shared) res.notes.push(`${shared} ${kind} ${shared === 1 ? 'entry was' : 'entries were'} already defined by another resource: only empty fields were filled.`);
+      await catalog.upsertConcepts(kind, rows);
       await catalog.linkResource(id, recs.map((r) => ({ id: r.id, loc: r.loc, flags: r.flags })), kind === 'grammar' ? 'EXPLAINS' : 'CONTAINS');
       await catalog.tagTopics(recs.map((r) => ({ id: r.id, topics: r.topics })));
       if (kind === 'kanji') recs.forEach((r) => knownKanji.add(r.props.char));
@@ -71,7 +97,8 @@ export async function ingestResources({ catalog, client, dir, force = false, log
       ...vocabularyExercises(res.concepts.vocabulary),
       ...kanaExercises(res.concepts.kana),
       ...kanjiExercises(res.concepts.kanji),
-    ];
+      ...grammarExercises(res.concepts.grammar.filter((g) => g.fromTable)),
+    ].filter((e) => owned.has(e.conceptId));
     const exercises = [...res.exercises.map((e) => ({ id: e.id, conceptId: e.conceptId, props: e.props })), ...gen];
     if (exercises.length) {
       await catalog.upsertExercises(exercises);
@@ -85,7 +112,7 @@ export async function ingestResources({ catalog, client, dir, force = false, log
     }
     // reference material (stroke-order PDFs/images) -> kanji
     if (res.refs.length) {
-      await catalog.linkResource(id, res.refs.map((r) => ({ id: r.conceptId, loc: 'text match', flags: r.flags, page: r.page })), 'REFERENCES');
+      await catalog.linkResource(id, res.refs.map((r) => ({ id: r.conceptId, loc: r.loc || 'text match', flags: r.flags, page: r.page })), 'REFERENCES');
     }
 
     const entry = {

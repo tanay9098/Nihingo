@@ -80,6 +80,19 @@ export function grammarRecord(obj, order, row) {
   };
 }
 
+/** A grammar point from a table row (mapped columns) -> the same record shape as grammar.json objects. */
+export function grammarRowRecord(row, map, order) {
+  const v = (role) => (map[role] ? row.values[map[role]] : '');
+  const name = v('grammar').replace(/\s+/g, ' ').trim();
+  if (!name) return { skip: 'no grammar point', flags: ['missing_name'] };
+  const rec = grammarRecord({
+    id: `g:${name}`, name, pattern: v('pattern'), explanation: v('explanation') || v('meaning'), level: v('level'),
+    examples: v('exampleJp') ? [{ jp: v('exampleJp'), reading: v('exampleReading') || v('exampleRomaji'), en: v('exampleEn') }] : [],
+    tags: splitList(v('topic')),
+  }, order, row.row);
+  return { ...rec, loc: `row ${row.row}`, fromTable: true };
+}
+
 export function exerciseRecord(obj, row) {
   const flags = [];
   if (!obj.id || !obj.type || !obj.prompt || obj.answer == null || !obj.concept) return { skip: 'incomplete exercise', flags: ['incomplete'] };
