@@ -87,7 +87,7 @@ export function kanjiExercises(kanji) {
     if (p.strokes > 0) {
       const nums = kanji.filter((o) => o.id !== k.id && o.props.strokes > 0).map((o) => String(o.props.strokes));
       out.push(mc(`ex:kanji:mc_strokes:${k.id}`, 'kanji_mc_strokes', k.id, `${p.char} — how many strokes?`, String(p.strokes), nums,
-        { explanation: `${p.char} is written with ${p.strokes} strokes (stroke count from the source data; stroke ORDER is not included).` }));
+        { explanation: `${p.char} is written with ${p.strokes} strokes (stroke count from the source data; open it in the Library for a stroke-order page if one is installed).` }));
     }
   }
   return out;

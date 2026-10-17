@@ -3,8 +3,18 @@ import { toHiragana } from '../agents/grade.js';
 
 const splitList = (s) => String(s || '').split(/[,;|]/).map((x) => x.trim().toLowerCase()).filter(Boolean);
 const HAS_KANJI = /[㐀-鿿]/u;
+// "JLPT N5" / "jlpt n5" / "N5" -> "N5", so every source uses the same label; anything else is kept as written
+const normLevel = (s) => { const t = String(s || '').trim(); return /^(jlpt\s*)?n[1-5]$/i.test(t) ? t.slice(-2).toUpperCase() : t || 'unknown'; };
 
 const searchText = (...parts) => parts.flat().filter(Boolean).map((p) => String(p).normalize('NFKC').toLowerCase()).join(' ');
+
+/** Search text for a concept's properties; also rebuilt when another resource fills in empty fields. */
+export function conceptSearch(kind, p) {
+  if (kind === 'vocabulary') return searchText(p.word, p.reading, toHiragana(p.reading || ''), p.romaji, p.meaning, p.tags, p.pos, 'vocabulary');
+  if (kind === 'kanji') return searchText(p.char, p.meaning, p.onyomi, p.kunyomi, toHiragana(p.kunyomi || ''), 'kanji');
+  if (kind === 'kana') return searchText(p.char, toHiragana(p.char), p.romaji, p.script, 'kana');
+  return searchText(p.name, p.pattern, p.explanation, p.tags, 'grammar');
+}
 
 export function vocabularyRecord(row, map, order) {
   const v = (role) => (map[role] ? row.values[map[role]] : '');
@@ -15,16 +25,15 @@ export function vocabularyRecord(row, map, order) {
   if (!reading) flags.push('missing_reading');
   if (!v('meaning')) flags.push('missing_meaning');
   const tags = splitList(v('topic'));
-  const level = v('level');
+  const props = {
+    word, reading, romaji: v('romaji').toLowerCase(), meaning: v('meaning'), definition: v('definition'), pos: v('pos'),
+    example: v('exampleJp'), exampleReading: v('exampleReading'), exampleMeaning: v('exampleEn'),
+    tags, level: normLevel(v('level')), hasKanji: HAS_KANJI.test(word), order,
+    flagged: flags.length > 0,
+  };
   return {
     id: `v:${word}`,
-    props: {
-      word, reading, romaji: v('romaji').toLowerCase(), meaning: v('meaning'), pos: v('pos'),
-      example: v('exampleJp'), exampleReading: v('exampleReading'), exampleMeaning: v('exampleEn'),
-      tags, level: level || 'unknown', hasKanji: HAS_KANJI.test(word), order,
-      flagged: flags.length > 0,
-      search: searchText(word, reading, toHiragana(reading), v('romaji'), v('meaning'), tags, v('pos'), 'vocabulary'),
-    },
+    props: { ...props, search: conceptSearch('vocabulary', props) },
     topics: tags, flags, loc: `row ${row.row}`,
   };
 }
@@ -38,13 +47,13 @@ export function kanjiRecord(row, map, order) {
   const strokes = Number.parseInt(strokesRaw, 10);
   if (strokesRaw && !Number.isFinite(strokes)) flags.push('bad_stroke_count');
   if (!v('meaning')) flags.push('missing_meaning');
+  const props = {
+    char, meaning: v('meaning'), onyomi: v('onyomi'), kunyomi: v('kunyomi'),
+    strokes: Number.isFinite(strokes) ? strokes : -1, level: normLevel(v('level')), order, flagged: flags.length > 0,
+  };
   return {
     id: `k:${char}`,
-    props: {
-      char, meaning: v('meaning'), onyomi: v('onyomi'), kunyomi: v('kunyomi'),
-      strokes: Number.isFinite(strokes) ? strokes : -1, level: v('level') || 'unknown', order, flagged: flags.length > 0,
-      search: searchText(char, v('meaning'), v('onyomi'), v('kunyomi'), toHiragana(v('kunyomi')), 'kanji'),
-    },
+    props: { ...props, search: conceptSearch('kanji', props) },
     topics: [], flags, loc: `row ${row.row}`,
   };
 }
@@ -57,7 +66,7 @@ export function kanaRecord(row, map, order) {
   return {
     id: `kana:${char}`,
     props: { char, romaji: v('romaji').toLowerCase(), script, row: row.values.row || '', order, flagged: false,
-      search: searchText(char, toHiragana(char), v('romaji'), script, 'kana') },
+      search: conceptSearch('kana', { char, romaji: v('romaji'), script }) },
     topics: [script], flags: [], loc: `row ${row.row}`,
   };
 }
@@ -70,10 +79,10 @@ export function grammarRecord(obj, order, row) {
   return {
     id: obj.id,
     props: {
-      name: obj.name, pattern: obj.pattern || '', explanation: obj.explanation || '', level: obj.level || 'unknown',
+      name: obj.name, pattern: obj.pattern || '', explanation: obj.explanation || '', level: normLevel(obj.level),
       example: ex?.jp || '', exampleReading: ex?.reading || '', exampleMeaning: ex?.en || '',
       tags: obj.tags || [], order, flagged: flags.length > 0,
-      search: searchText(obj.name, obj.pattern, obj.explanation, obj.tags, 'grammar'),
+      search: conceptSearch('grammar', obj),
     },
     topics: obj.tags || [], flags, loc: `item ${row}`,
     requires: obj.requires || [], contrasts: obj.contrasts || [],

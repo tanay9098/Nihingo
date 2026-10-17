@@ -79,7 +79,7 @@ REST API (all JSON `{ok, data | error}`; learner via `X-Learner-Id`): `GET /api/
 ## Verification status (honest)
 
 Run in the development sandbox on **Oct 17 2026**:
-* ✅ `npm test` — 42 tests (17 unit + 25 integration) pass against a **real FalkorDB module (v4.18.3)**: ingestion with the real CSV/JSON schemas, unsupported/broken file handling, a real PDF with Japanese text,
+* ✅ `npm test` — 45 tests (19 unit + 26 integration) pass against a **real FalkorDB module (v4.18.3)**: ingestion with the real CSV/JSON schemas, every recognised PDF study-list layout, local files never overwriting original content, unsupported/broken file handling, a real PDF with Japanese text,
   repeat-ingestion without duplicates, idempotent attempts (including concurrent duplicates), memory change after an attempt, recommendation change after a session, agent handoff chain from stored events,
   procedural preferences, listening logs, bounded graph queries, injection attempts, secrets not in any response or in browser code, DB-down behaviour.
 * ✅ Real headless Chromium run of the UI (desktop 1200 px and mobile 390 px): all five pages load with **no console/CSP errors**, no horizontal overflow, and the two-session demo completes through the UI. This found and fixed a real bug (Unicode ids rejected by validation).
@@ -90,7 +90,8 @@ Run in the development sandbox on **Oct 17 2026**:
 
 ## Known limitations
 * No authentication: two local profiles (`learner:demo`, `learner:me`), not accounts.
-* Content is small by design (56 words, 26 kanji, 16 grammar points, 92 kana); it is original, not a full curriculum. Stroke order is **not** provided — only counts and linkable reference files.
+* The original content is small by design (56 words, 26 kanji, 16 grammar points, 92 kana). With the JLPT N5 files in `resources/local/` the library holds 856 words, 103 kanji and 152 grammar points;
+  that material comes from third-party lists (see `docs/RESOURCE_INVENTORY.md`) and carries their quirks. Stroke order is linked as **pages** of the reference PDFs (79 kanji, 92 kana), never animated or verified.
 * The per-learner write lock is in-process (single app instance).
 * Topic links between concepts and lessons rely on keywords in video titles; when nothing matches, the app says so instead of inventing a link.
 
@@ -109,3 +110,6 @@ Run in the development sandbox on **Oct 17 2026**:
 
 ## License
 MIT for the code and original content (see `LICENSE`). Lazy Benkyou content is © Lazy Benkyou Studios LLC and is only linked/embedded.
+Files in `resources/local/` are third-party material under their own terms, recorded per file in `resources/sources.json` and `docs/RESOURCE_INVENTORY.md`:
+the hanabira.org PDFs are CC BY 4.0 / CC BY-SA 4.0 (credit hanabira.org), the Nihongo Master lists are free downloads with no stated license, and the
+NIHONGO ICHIBAN kana workbook is © Chinriu Honten Ltd., all rights reserved (personal printing only). They are not covered by this repository's MIT license.
