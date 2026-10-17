@@ -72,6 +72,7 @@ const RULES = {
 export function evidenceLines(rec) {
   const e = rec.evidence || {};
   const out = [`Rule applied: ${RULES[e.rule] || e.rule || 'n/a'}`];
+  if (e.stage) out.push(`Learning path: step ${e.stage.step} of ${e.stage.of} — ${e.stage.title} (${e.stage.module})`);
   if (e.mistakeCount) {
     let line = `${plural(e.mistakeCount, 'mistake')} recorded in ${plural(e.sessionCount, 'session')}`;
     if (e.demoMistakes) line += ` (${e.demoMistakes} from seeded demo history, ${e.liveMistakes} from live answers)`;

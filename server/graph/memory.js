@@ -282,6 +282,33 @@ export class MemoryStore {
     );
   }
 
+  /** Per learning-path step: how many items exist, how many this learner has introduced/mastered, and a preview. */
+  async pathwayProgress(learnerId, steps) {
+    const out = {};
+    for (const s of steps) {
+      const [r] = await this.c.read(
+        `MATCH (c:${s.label}) WHERE ${s.where}
+         OPTIONAL MATCH (:Learner {id: $lid})-[st:STUDIES]->(c)
+         RETURN count(c) AS total, count(st) AS studied, sum(CASE WHEN st.status = 'mastered' THEN 1 ELSE 0 END) AS mastered`,
+        { lid: learnerId },
+      );
+      const preview = r.total ? await this.c.read(
+        `MATCH (c:${s.label}) WHERE ${s.where} RETURN coalesce(c.name, c.word, c.char) AS name ORDER BY c.order LIMIT 4`,
+      ) : [];
+      out[s.id] = { ...r, preview: preview.map((p) => p.name) };
+    }
+    return out;
+  }
+
+  /** Items of one learning-path step this learner has not studied yet, in source order. */
+  async nextInStep(learnerId, step, limit = 3) {
+    return this.c.query(
+      `MATCH (c:${step.label}) WHERE ${step.where} AND NOT (:Learner {id: $lid})-[:STUDIES]->(c)
+       RETURN c.id AS id, coalesce(c.name, c.word, c.char) AS name, c.order AS ord ORDER BY ord LIMIT $limit`,
+      { lid: learnerId, limit },
+    );
+  }
+
   async conceptTopics(conceptIds) {
     return this.c.query(
       'MATCH (c:Concept)-[:TAGGED]->(t:Topic) WHERE c.id IN $ids RETURN DISTINCT c.id AS conceptId, t.id AS topicId, t.name AS topic',

@@ -70,9 +70,16 @@ export class ExaminerAgent {
       const dc = await candidatesFor(dueIds);
       for (const id of dueIds) if (picks.length < n - 1) pickFor(dc[id] ?? [], 'Due for review');
     }
-    // 3) new material (planner's next grammar + vocabulary)
+    // 3) new material: the next items on the learning path, round-robin; otherwise the planner's next grammar + vocabulary
+    if (snapshot.pathNext && primary.activity === 'new_material') {
+      const ids = snapshot.pathNext.map((x) => x.id);
+      const pc = await candidatesFor(ids);
+      const why = primary.evidence.stage ? `New material · Step ${primary.evidence.stage.step}: ${primary.evidence.stage.title}` : 'New material';
+      let added = true;
+      while (picks.length < n && added) { added = false; for (const id of ids) if (picks.length < n && pickFor(pc[id] ?? [], why)) added = true; }
+    }
     const fresh = [...snapshot.nextGrammar.slice(0, 1), ...snapshot.nextVocab.slice(0, 3)].map((x) => x.id).filter((id) => !focusIds.includes(id));
-    if (picks.length < n && fresh.length) {
+    if (picks.length < n && fresh.length && !(snapshot.pathNext && primary.activity === 'new_material')) {
       const fc = await candidatesFor(fresh);
       for (const id of fresh) if (picks.length < n) pickFor(fc[id] ?? [], 'New material');
     }

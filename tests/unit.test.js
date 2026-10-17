@@ -5,6 +5,7 @@ import { updateStudyState, wilsonLower, EMPTY_STATE, inferBestFormat, DAY_MS } f
 import { parseDelimited, parseTable } from '../server/ingestion/csv.js';
 import { classifyTable } from '../server/ingestion/mapping.js';
 import { decide } from '../server/agents/planner.js';
+import { buildPathway, PATHWAY } from '../server/agents/pathway.js';
 import { vocabularyExercises, grammarExercises } from '../server/ingestion/exercises.js';
 import { grammarRowRecord } from '../server/ingestion/records.js';
 import { parsePdfLayout } from '../server/ingestion/pdf-layouts.js';
@@ -186,6 +187,30 @@ test('planner policy: recurring mistakes, prerequisite gaps, confusable pairs', 
   assert.equal(decide({ ...base, recurring: [rec({ id: 'a', name: 'A', mistakes: 4, recent: '0011' })] }).activity, 'new_material');
   // overdue review beats new material
   assert.equal(decide({ ...base, due: [{ id: 'x', name: 'X' }] }).activity, 'review_due');
+});
+
+test('learning path: ordered steps, first unfinished step is current, empty steps dropped', () => {
+  assert.deepEqual(PATHWAY.map((s) => s.id), ['hiragana', 'katakana', 'vocabulary', 'grammar', 'kanji', 'n5']);
+  const row = (total, studied) => ({ total, studied, mastered: 0, preview: [] });
+  const fresh = buildPathway({ hiragana: row(46, 0), katakana: row(46, 0), vocabulary: row(56, 0), grammar: row(16, 0), kanji: row(26, 0), n5: row(0, 0) });
+  assert.equal(fresh.current.id, 'hiragana'); assert.equal(fresh.current.step, 1);
+  assert.equal(fresh.totalSteps, 5); assert.ok(!fresh.steps.some((s) => s.id === 'n5'));
+  assert.ok(fresh.steps.every((s) => !('where' in s) && !('label' in s)), 'Cypher fragments are not exposed');
+  // earlier progress is kept: a learner who already practised some vocabulary still finishes the foundations first
+  const mid = buildPathway({ hiragana: row(46, 46), katakana: row(46, 10), vocabulary: row(56, 3), grammar: row(16, 0), kanji: row(26, 0), n5: row(900, 0) });
+  assert.deepEqual(mid.steps.map((s) => s.status), ['completed', 'current', 'upcoming', 'upcoming', 'upcoming', 'upcoming']);
+  assert.equal(mid.completed, 1);
+  assert.deepEqual(mid.steps.find((s) => s.id === 'grammar').requires.map((r) => r.id), ['vocabulary']);
+});
+
+test('planner policy: new material follows the learning path; revision still comes first', () => {
+  const pathway = { current: { id: 'katakana', step: 2, of: 6, title: 'Katakana' } };
+  const pathNext = [{ id: 'kana:ア', name: 'ア' }, { id: 'kana:イ', name: 'イ' }];
+  const d = decide({ ...base, nextGrammar: [{ id: 'g1', name: 'G' }], pathway, pathNext });
+  assert.equal(d.activity, 'new_material'); assert.deepEqual(d.focus, pathNext);
+  assert.match(d.reason, /Step 2 of 6/);
+  assert.equal(decide({ ...base, noHistory: true, pathway, pathNext }).rule, 'first-session');
+  assert.equal(decide({ ...base, due: [{ id: 'x', name: 'X' }], pathway, pathNext }).activity, 'review_due');
 });
 
 test('Lazy Benkyou catalog: verified structure, never fabricated levels or transcripts', async () => {

@@ -9,7 +9,7 @@ const ORDER = { '.csv': 0, '.tsv': 0, '.json': 1, '.jsonl': 2, '.pdf': 8 };
 const rank = (abs) => ORDER[path.extname(abs).toLowerCase()] ?? 5;
 
 // Concepts from non-original files sort after the curated ones in the planner's "next new item" order.
-const LOCAL_ORDER = 100000;
+export const LOCAL_ORDER = 100000;
 // Properties another resource may fill in on a concept it does not own. Never ids or order, and never `level`:
 // a level is a claim made by one source (e.g. "N5" in a downloaded list) and is not copied onto another's concept.
 const FILLABLE = new Set(['reading', 'romaji', 'meaning', 'definition', 'pos', 'example', 'exampleReading', 'exampleMeaning',

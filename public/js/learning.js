@@ -48,7 +48,7 @@ function briefing(main, v, ctx) {
       h('div', { class: 'row' }, h('strong', {}, b.recommendation.title), h('span', { class: 'badge' }, 'Tutor')),
       h('p', {}, b.explanation.text), whyBox(b.recommendation),
       b.lesson.concepts.map((c) => h('div', { class: 'card flat' }, h('strong', { class: 'jp' }, c.name), c.pattern ? h('span', { class: 'muted' }, ` — ${c.pattern}`) : null,
-        c.explanation ? h('p', {}, c.explanation) : c.meaning ? h('p', {}, `${c.reading || ''} ${c.meaning}`) : null,
+        c.explanation ? h('p', {}, c.explanation) : c.meaning ? h('p', {}, `${c.reading || ''} ${c.meaning}`) : c.romaji ? h('p', {}, `${c.script ? `${c.script} · ` : ''}“${c.romaji}”`) : null,
         c.example ? h('p', { class: 'jp' }, c.example, h('span', { class: 'muted' }, ` ${c.exampleMeaning || ''}`)) : null)),
       b.lesson.sources.length ? h('p', { class: 'small muted' }, 'Source: ', b.lesson.sources.map((s) => `${s.title} (${s.source})`).join('; ')) : null) : null,
     h('div', { class: 'card' }, h('h2', {}, `${v.exercises.length} questions selected by the Examiner`),

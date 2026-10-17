@@ -9,6 +9,9 @@ const state = { tab: 'all', q: '', topic: '', offset: 0 };
 const srcBadge = (origin) => h('span', { class: `badge ${origin === 'original' ? 'src-original' : ''}` }, origin === 'original' ? 'Original content' : origin === 'external' ? 'External (linked)' : 'Local file');
 
 export async function render(main, { showError }) {
+  // deep link from the learning path, e.g. #/library?tab=kana&topic=hiragana
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  if (TABS.some(([k]) => k === params.get('tab'))) Object.assign(state, { tab: params.get('tab'), topic: params.get('topic') || '', q: '', offset: 0 });
   const results = h('div', { id: 'results', 'aria-live': 'polite' });
   const search = h('input', { type: 'search', placeholder: 'Search Japanese, kana, romaji, English, concept…', 'aria-label': 'Search the library', value: state.q });
   const topicSel = h('select', { 'aria-label': 'Filter by topic' }, h('option', { value: '' }, 'All topics'));

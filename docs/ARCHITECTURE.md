@@ -100,7 +100,7 @@ attempts, mastery ≥ 0.6 and the last two answers right; `struggling` needs ≥
    weak prerequisite → `revise_prerequisite`; confusable partner also missed → `contrast_revision`; else `revise_concept`.
 2. A low (≤ 2) listening rating whose lesson topic links to unmastered concepts → `topic_revision`.
 3. Overdue items → `review_due`.
-4. Otherwise `new_material` (next grammar whose prerequisites have been practised; next unstudied vocabulary).
+4. Otherwise `new_material`: the next unstudied items of the learner's current **learning-path step** (`server/agents/pathway.js`: Hiragana → Katakana → First words → Sentence patterns (grammar, in `REQUIRES` order) → First kanji → JLPT N5 extension). A step is current until every item in it has a `STUDIES` edge; the last step keeps the original mix (next grammar whose prerequisites have been practised; next unstudied vocabulary). The path is computed from the existing graph, so stored progress is never reset.
 
 A secondary **listening** recommendation is added unless the learner turned it off: the unwatched lesson sharing the most `Topic`s with the focus
 (falls back to the newest unwatched, and says so). Explanations quote only numbers stored in the recommendation's evidence.
