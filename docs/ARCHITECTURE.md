@@ -30,7 +30,7 @@ FalkorDB  (persistent: AOF + volume)                 optional: GraphRAG-SDK side
 
 | Node | Key properties | Notes |
 | --- | --- | --- |
-| `Concept:Vocabulary / :Kanji / :Kana / :GrammarConcept` | `id`, `search`, content fields, `order`, `tags` | Two labels so generic queries use `Concept`. Ids are stable (`v:水`, `k:日`, `kana:あ`, `g-ni`). |
+| `Concept:Vocabulary / :Kanji / :Kana / :GrammarConcept` | `id`, `search`, content fields, `order`, `tags`, `primarySource` | Two labels so generic queries use `Concept`. Ids are stable (`v:水`, `k:日`, `kana:あ`, `g-ni`; grammar from spreadsheets uses `g:<grammar point>`). `primarySource` is the Resource that defined the concept: later files only fill its empty fields (never `level`). Concepts from non-original files get `order` + 100000 so curated content is planned first. |
 | `Exercise` | `type`, `format`, `prompt`, `answer`, `choices`, `origin` (`original` \| `generated-from-source`) | Answers stay server-side. |
 | `Resource` | `path`, `checksum`, `format`, `status`, `source`, `license`, `url` | One per file; provenance preserved. |
 | `Lesson` | `videoId`, `url`, `embedUrl`, `difficulty`, `difficultyEvidence`, `embeddable` | Listening catalog (Lazy Benkyou). |
@@ -51,7 +51,7 @@ FalkorDB  (persistent: AOF + volume)                 optional: GraphRAG-SDK side
 | `(Attempt)-[:TESTED]->(Concept)`; `(Attempt)-[:RESULTED_IN]->(Mistake)-[:ABOUT]->(Concept)` | Evidence trail |
 | `(Exercise)-[:TESTS]->(Concept)` | |
 | `(Concept)-[:REQUIRES]->(Concept)`, `(Concept)-[:CONTRASTS_WITH]->(Concept)`, `(Kanji)-[:APPEARS_IN]->(Vocabulary)` | Authoritative language structure (from the data files) |
-| `(Resource)-[:CONTAINS / :EXPLAINS / :REFERENCES {loc, page, flags}]->(…)` | Provenance with row/page |
+| `(Resource)-[:CONTAINS / :EXPLAINS / :REFERENCES {loc, page, flags}]->(…)` | Provenance with row/page. `REFERENCES` points from a stroke-order PDF/image to a `Kanji` or `Kana`, with the page |
 | `(Concept\|Lesson)-[:TAGGED]->(Topic)` | |
 | `(Learner)-[:PREFERS]->(LearningPreference)`; `(Learner)-[:HAS_RECOMMENDATION]->(Recommendation)`; `(Recommendation)-[:RECOMMENDS]->(Concept\|Lesson)`; `(Recommendation)-[:BASED_ON]->(Mistake\|ListeningLog)` | |
 | `(Learner)-[:WATCHED]->(ListeningLog)-[:OF]->(Lesson)`; `(Learner)-[:SAVED]->(Lesson)` | Listening history |
@@ -117,7 +117,7 @@ created at demo time is `isDemo: false`. “Restore seeded demo” deletes every
   resources, and answers from those passages; with no match it says it doesn't know.
 * AI mode: answers are LLM-written from the numbered passages only, with a figure-consistency check, falling back to the retrieved text on any failure.
 * Optional: the official **GraphRAG-SDK** (Python ≥ 3.10) in `graphrag/`. It needs an LLM *and* an embedding model, so it is a separate service used only when
-  `GRAPHRAG_URL` is set in AI mode; it ingests grammar/vocabulary documents into its own graph. See `graphrag/README.md`.
+  `GRAPHRAG_URL` is set in AI mode; it ingests grammar/vocabulary documents into its own graph: everything in `resources/original/` plus grammar spreadsheets in `resources/local/` (not the PDFs). See `graphrag/README.md`.
   It was verified against the SDK's real signatures and a live FalkorDB connection, but **not** end-to-end with an LLM (no key was available).
 
 ## Security notes

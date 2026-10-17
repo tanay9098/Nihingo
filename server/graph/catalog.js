@@ -237,11 +237,11 @@ export class CatalogStore {
     );
   }
 
-  async kanjiReferences() {
-    // reference material (stroke-order PDFs / images) linked to kanji during ingestion
+  async strokeReferences() {
+    // reference material (stroke-order PDFs / images) linked to kanji and kana during ingestion
     return this.c.read(
-      `MATCH (r:Resource)-[x:REFERENCES]->(k:Kanji)
-       RETURN k.id AS kanji, r.id AS resource, r.title AS title, r.path AS path, r.format AS format, x.page AS page`,
+      `MATCH (r:Resource)-[x:REFERENCES]->(c:Concept) WHERE c:Kanji OR c:Kana
+       RETURN c.id AS concept, r.id AS resource, r.title AS title, r.path AS path, r.format AS format, x.page AS page`,
     );
   }
 }

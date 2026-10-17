@@ -80,7 +80,7 @@ function glossEntries(pages, lvl) {
     }
   });
   return { kind: 'vocabulary', layout: 'dictionary entries (word 【reading】 — gloss + example)', rows,
-    map: { word: 'word', reading: 'reading', meaning: 'meaning', exampleJp: 'example', exampleEn: 'exampleEn', level: 'level' }, notes: [] };
+    map: { word: 'word', reading: 'reading', meaning: 'meaning', definition: 'definition', exampleJp: 'example', exampleEn: 'exampleEn', level: 'level' }, notes: [] };
 }
 
 /** Kanji writing sheets: the kanji at the left margin, then its meaning, 音 on'yomi, 訓 kun'yomi and "N strokes". */

@@ -34,7 +34,7 @@ export const api = {
   library: (params) => request('GET', `/library?${new URLSearchParams(params)}`),
   libraryItem: (id) => request('GET', `/library/item?id=${encodeURIComponent(id)}`),
   topics: () => request('GET', '/library/topics'),
-  kanjiRefs: () => request('GET', '/library/kanji-references'),
+  strokeRefs: () => request('GET', '/library/stroke-references'),
   exerciseSummary: () => request('GET', '/library/exercises'),
   resources: () => request('GET', '/resources'),
   listening: () => request('GET', '/listening'),

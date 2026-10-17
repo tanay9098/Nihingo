@@ -3,15 +3,18 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { scanDir, describeFile, handleFile, provenanceFor } from './files.js';
 import { vocabularyExercises, kanaExercises, kanjiExercises, grammarExercises } from './exercises.js';
+import { conceptSearch } from './records.js';
 
 const ORDER = { '.csv': 0, '.tsv': 0, '.json': 1, '.jsonl': 2, '.pdf': 8 };
 const rank = (abs) => ORDER[path.extname(abs).toLowerCase()] ?? 5;
 
 // Concepts from non-original files sort after the curated ones in the planner's "next new item" order.
 const LOCAL_ORDER = 100000;
-// Properties another resource may fill in on a concept it does not own (never ids, order or search text).
-const FILLABLE = new Set(['reading', 'romaji', 'meaning', 'pos', 'example', 'exampleReading', 'exampleMeaning', 'level',
+// Properties another resource may fill in on a concept it does not own. Never ids or order, and never `level`:
+// a level is a claim made by one source (e.g. "N5" in a downloaded list) and is not copied onto another's concept.
+const FILLABLE = new Set(['reading', 'romaji', 'meaning', 'definition', 'pos', 'example', 'exampleReading', 'exampleMeaning',
   'onyomi', 'kunyomi', 'strokes', 'pattern', 'explanation']);
+const notesText = (notes) => notes.slice(0, 8).join(' | ').slice(0, 1200);
 const isEmpty = (v) => v == null || v === '' || v === 'unknown' || v === -1 || (Array.isArray(v) && !v.length);
 
 async function loadSources(dir) {
@@ -53,7 +56,7 @@ export async function ingestResources({ catalog, client, dir, force = false, log
       props: {
         title: res.meta?.title || path.basename(f.rel), path: f.rel, format: res.format, kind: res.detected || res.format,
         size: f.size, checksum: f.checksum, status: res.status, source: prov.source, license: prov.license,
-        origin: prov.origin, url: prov.url || '', notes: res.notes.slice(0, 8).join(' | ').slice(0, 1200),
+        origin: prov.origin, url: prov.url || '', notes: notesText(res.notes),
         flagged: res.flagged, skipped: res.skipped,
       },
     });
@@ -77,15 +80,17 @@ export async function ingestResources({ catalog, client, dir, force = false, log
           continue;
         }
         const patch = Object.fromEntries(Object.entries(r.props).filter(([k, v]) => FILLABLE.has(k) && isEmpty(cur.props[k]) && !isEmpty(v)));
-        if (Object.keys(patch).length) rows.push({ id: r.id, props: patch });
+        if (Object.keys(patch).length) rows.push({ id: r.id, props: { ...patch, search: conceptSearch(kind, { ...cur.props, ...patch }) } });
       }
       const shared = recs.filter((r) => !owned.has(r.id)).length;
-      if (shared) res.notes.push(`${shared} ${kind} ${shared === 1 ? 'entry was' : 'entries were'} already defined by another resource: only empty fields were filled.`);
+      if (shared) res.notes.unshift(`${shared} ${kind} ${shared === 1 ? 'entry was' : 'entries were'} already defined by another resource: only empty fields were filled.`);
       await catalog.upsertConcepts(kind, rows);
       await catalog.linkResource(id, recs.map((r) => ({ id: r.id, loc: r.loc, flags: r.flags })), kind === 'grammar' ? 'EXPLAINS' : 'CONTAINS');
       await catalog.tagTopics(recs.map((r) => ({ id: r.id, topics: r.topics })));
       if (kind === 'kanji') recs.forEach((r) => knownKanji.add(r.props.char));
     }
+    // the ownership notes above are only known now: store them on the Resource too
+    await catalog.upsertResource({ id, props: { notes: notesText(res.notes) } });
     // grammar relationships
     const gram = res.concepts.grammar;
     if (gram.length) {
@@ -110,7 +115,7 @@ export async function ingestResources({ catalog, client, dir, force = false, log
       await catalog.linkResource(id, res.lessons.map((l) => ({ id: l.id, loc: l.loc, flags: l.flags })), 'CONTAINS');
       await catalog.tagTopics(res.lessons.map((l) => ({ id: l.id, topics: l.topics })), 'Lesson');
     }
-    // reference material (stroke-order PDFs/images) -> kanji
+    // reference material (stroke-order PDFs/images) -> kanji / kana
     if (res.refs.length) {
       await catalog.linkResource(id, res.refs.map((r) => ({ id: r.conceptId, loc: r.loc || 'text match', flags: r.flags, page: r.page })), 'REFERENCES');
     }

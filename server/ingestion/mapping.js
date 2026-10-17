@@ -9,6 +9,7 @@ const ALIASES = {
   reading: ['reading', 'kana_reading', 'hiragana', 'furigana', 'yomi', 'pronunciation', '読み', 'よみ'],
   romaji: ['romaji', 'rōmaji', 'romanization', 'romanisation', 'roumaji'],
   meaning: ['meaning', 'meanings', 'english', 'translation', 'definition', 'gloss', '意味'],
+  definition: ['definition', 'english_definition'],   // only used as its own field when a separate meaning column exists
   pos: ['pos', 'part_of_speech', 'type_of_word', 'wordtype'],
   topic: ['topic', 'topics', 'tag', 'tags', 'category', 'categories', 'theme', 'group', 'lesson'],
   level: ['level', 'jlpt', 'jlpt_level', 'difficulty'],

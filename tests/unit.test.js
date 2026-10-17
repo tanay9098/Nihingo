@@ -122,7 +122,7 @@ test('grammar spreadsheets ("Grammar Point", "Formation", "Example (Japanese)"�
   assert.equal(recs[0].props.pattern, 'Noun + が + いちばん');
   assert.equal(recs[0].props.explanation, 'the most');
   assert.equal(recs[0].props.example, '寿司が一番好きです。'); assert.equal(recs[0].props.exampleMeaning, 'I like sushi the most.');
-  assert.equal(recs[0].props.level, 'JLPT N5');
+  assert.equal(recs[0].props.level, 'N5');                         // "JLPT N5" is normalised to the label every other source uses
   const ex = grammarExercises(recs);
   assert.deepEqual(ex.map((e) => e.props.type).sort(), ['flashcard', 'flashcard', 'flashcard', 'grammar_mc_meaning', 'grammar_mc_meaning', 'grammar_mc_meaning', 'grammar_mc_point', 'grammar_mc_point', 'grammar_mc_point']);
   for (const e of ex.filter((x) => x.props.format === 'multiple_choice')) assert.ok(JSON.parse(e.props.choices).includes(e.props.answer));

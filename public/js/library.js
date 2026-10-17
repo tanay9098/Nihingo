@@ -56,11 +56,18 @@ export async function render(main, { showError }) {
   load();
 }
 
+// Big label for a grammar card: the Japanese part of the name, without the romaji in brackets or Latin
+// placeholders ("A が いちばん～ (A ga ichiban～)" -> "が いちばん～", "に (time, destination…)" -> "に").
+function grammarTitle(name) {
+  const jp = name.replace(/\s*\([^)]*\)\s*/g, ' ').split(/\s+/).filter((t) => /[\u3040-\u30ff\u3400-\u9fff]/.test(t)).join(' ');
+  return jp || name;
+}
+
 function itemCard(it, open) {
   const title = it.word || it.char || it.name;
   const sub = it.kind === 'grammar' ? it.pattern : it.kind === 'kana' ? `${it.romaji} · ${it.script}` : `${it.reading && it.reading !== title ? `${it.reading} · ` : ''}${it.meaning || ''}`;
   return h('button', { class: 'item', onclick: () => open(it.id), 'aria-label': `${title}, ${sub}` },
-    h('span', { class: 'big', lang: 'ja' }, it.kind === 'grammar' ? it.name.split(' ')[0] : title),
+    h('span', { class: 'big', lang: 'ja' }, it.kind === 'grammar' ? grammarTitle(it.name) : title),
     h('span', { class: 'small', lang: 'ja' }, sub), h('span', { class: 'badge' }, it.kind));
 }
 
@@ -68,7 +75,7 @@ function detail(dlg, it, open) {
   const title = it.word || it.char || it.name;
   const dl = h('dl', {});
   const row = (k, v) => v ? dl.append(h('dt', {}, k), h('dd', { lang: 'ja' }, v)) : null;
-  if (it.kind === 'vocabulary') { row('Reading', it.reading); row('Romaji', it.romaji); row('Meaning', it.meaning); row('Part of speech', it.pos); row('Level', it.level === 'unknown' ? 'not labelled' : it.level); }
+  if (it.kind === 'vocabulary') { row('Reading', it.reading); row('Romaji', it.romaji); row('Meaning', it.meaning); row('Definition', it.definition); row('Part of speech', it.pos); row('Level', it.level === 'unknown' ? 'not labelled' : it.level); }
   if (it.kind === 'kanji') { row('Meaning', it.meaning); row('On-yomi', it.onyomi); row('Kun-yomi', it.kunyomi); row('Strokes', it.strokes > 0 ? String(it.strokes) : ''); }
   if (it.kind === 'kana') { row('Romaji', it.romaji); row('Script', it.script); }
   if (it.kind === 'grammar') { row('Pattern', it.pattern); row('Explanation', it.explanation); }
@@ -90,12 +97,18 @@ function detail(dlg, it, open) {
 }
 
 async function strokeTab(el, open) {
-  const [refs, kanji] = await Promise.all([api.kanjiRefs(), api.library({ kind: 'kanji', limit: 200 })]);
+  const [refs, kanji, kana] = await Promise.all([api.strokeRefs(), api.library({ kind: 'kanji', limit: 200 }), api.library({ kind: 'kana', limit: 200 })]);
+  const refCount = (id) => refs.filter((r) => r.concept === id).length;
+  const linked = (items) => items.filter((c) => refCount(c.id)).length;
+  const card = (c, sub) => { const n = refCount(c.id); return h('button', { class: 'item', onclick: () => open(c.id) }, h('span', { class: 'big', lang: 'ja' }, c.char), h('span', { class: 'small' }, `${sub}${n ? ` · ${plural(n, 'page')}` : ''}`)); };
   el.replaceChildren(h('div', { class: 'stack' },
     h('div', { class: 'card flat' }, h('strong', {}, 'Stroke-order reference'),
-      refs.length ? h('p', {}, `${plural(refs.length, 'kanji↔page link')} found in local reference files (linked by text/filename match; stroke data itself is not parsed).`)
+      refs.length ? h('p', {}, `Stroke-order pages from your reference files are linked for ${linked(kanji.items)} of ${kanji.items.length} kanji and ${linked(kana.items)} of ${kana.items.length} kana (matched by page layout, text or file name). Open an item to see the file and page; the strokes themselves are not parsed or animated.`)
         : h('p', {}, 'No stroke-order PDFs or images are installed, so this app shows stroke counts only and does not claim to animate or verify stroke order. Add files under resources/local/ (for example 日.png or a stroke-order PDF) and run npm run ingest.')),
-    h('div', { class: 'items' }, kanji.items.map((k) => { const n = refs.filter((r) => r.kanji === k.id); return h('button', { class: 'item', onclick: () => open(k.id) }, h('span', { class: 'big', lang: 'ja' }, k.char), h('span', { class: 'small' }, `${k.strokes > 0 ? `${k.strokes} strokes` : 'stroke count unknown'}${n.length ? ` · ${n.length} reference(s)` : ''}`)); }))));
+    h('h3', {}, 'Kanji'),
+    h('div', { class: 'items' }, kanji.items.map((k) => card(k, k.strokes > 0 ? `${k.strokes} strokes` : 'stroke count unknown'))),
+    h('h3', {}, 'Hiragana & katakana'),
+    h('div', { class: 'items' }, kana.items.map((k) => card(k, `${k.romaji} · ${k.script}`)))));
 }
 
 function readingTab(el) {

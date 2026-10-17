@@ -17,7 +17,8 @@ from pathlib import Path
 
 from aiohttp import web
 
-RES = Path(os.environ.get("RESOURCES_DIR", Path(__file__).resolve().parent.parent / "resources")) / "original"
+ROOT = Path(os.environ.get("RESOURCES_DIR", Path(__file__).resolve().parent.parent / "resources"))
+RES = ROOT / "original"
 CFG = {
     "host": os.environ.get("FALKORDB_HOST", "localhost"),
     "port": int(os.environ.get("FALKORDB_PORT", "6380")),
@@ -55,6 +56,18 @@ def documents():
             by_topic.setdefault(row["topic"], []).append(f"{row['word']} ({row['reading']}) means {row['meaning']}")
     for topic, items in by_topic.items():
         docs.append((f"vocab:{topic}", f"Vocabulary about {topic}: " + "; ".join(items)))
+    # grammar spreadsheets the learner added under resources/local/ ("Grammar Point", "Meaning", "Formation", ...)
+    for path in sorted((ROOT / "local").rglob("*.csv")):
+        with open(path, encoding="utf-8-sig", newline="") as f:
+            reader = csv.DictReader(f)
+            if "Grammar Point" not in (reader.fieldnames or []):
+                continue
+            for row in reader:
+                name = " ".join((row.get("Grammar Point") or "").split())
+                if not name:
+                    continue
+                ex = f"{row.get('Example (Japanese)', '')} ({row.get('Example (English)', '')})"
+                docs.append((f"grammar:g:{name}", f"Grammar point {name} ({row.get('Formation', '')}). {row.get('Meaning', '')} Examples: {ex}"))
     return docs
 
 

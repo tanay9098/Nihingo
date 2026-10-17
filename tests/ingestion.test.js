@@ -95,16 +95,25 @@ test('ingestion: PDF text is extracted and kanji are linked to the pages they ap
 test('ingestion: a local file never overwrites a concept another resource defined; it only fills empty fields', { skip }, async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'overlap-'));
   try {
-    await writeFile(path.join(dir, 'n5.csv'), 'word,reading,meaning,level\n水,すい,WRONG,N5\n空気,くうき,air,N4\n');
+    // ぬえぬえ is a made-up word, so it never collides with a real list in resources/local/
+    await writeFile(path.join(dir, 'n5.csv'), 'word,reading,meaning,level\n水,すい,WRONG,N5\nぬえぬえ,ぬえぬえ,test word,N4\n');
     const report = await ingestResources({ catalog: new CatalogStore(client), client, dir });
     assert.equal(report.files[0].counts.vocabulary, 2);
-    assert.equal(report.files[0].counts.exercises, 6);              // exercises only for the new word
+    assert.equal(report.files[0].counts.exercises, 4);              // exercises only for the new (kana-only) word
     const w = (await client.query("MATCH (v:Vocabulary {id: 'v:水'}) RETURN v.meaning AS m, v.reading AS r, v.level AS l, v.primarySource AS s"))[0];
-    assert.deepEqual(w, { m: 'water', r: 'みず', l: 'N5', s: 'res:original/vocabulary.csv' });
+    assert.equal(w.m, 'water'); assert.equal(w.r, 'みず'); assert.equal(w.s, 'res:original/vocabulary.csv');
+    assert.equal(w.l, 'unknown');                                    // a level is one source's claim: never copied onto another's concept
+    // empty fields are filled and become searchable: b.csv supplies the meaning a.csv left empty
+    await writeFile(path.join(dir, 'a.csv'), 'word,reading\nぴよぴよ,ぴよぴよ\n');
+    await writeFile(path.join(dir, 'b.csv'), 'word,reading,meaning\nぴよぴよ,ぴよぴよ,chirp\n');
+    await ingestResources({ catalog: new CatalogStore(client), client, dir });
+    assert.match((await client.query("MATCH (v:Vocabulary {id: 'v:ぴよぴよ'}) RETURN v.search AS q"))[0].q, /chirp/);
     assert.equal((await client.query("MATCH (e:Exercise {id: 'ex:vocab:mc_meaning:v:水'}) RETURN e.answer AS a"))[0].a, 'water');
     assert.equal(await count("MATCH (:Resource {path: 'n5.csv'})-[:CONTAINS]->(:Vocabulary {id: 'v:水'}) RETURN count(*) AS n"), 1);
     // new local material is planned after the curated original content
-    assert.ok((await client.query("MATCH (v:Vocabulary {id: 'v:空気'}) RETURN v.order AS o"))[0].o >= 100000);
+    assert.ok((await client.query("MATCH (v:Vocabulary {id: 'v:ぬえぬえ'}) RETURN v.order AS o"))[0].o >= 100000);
+    // the ownership note is stored on the Resource node, not only in the report
+    assert.match((await client.query("MATCH (r:Resource {path: 'n5.csv'}) RETURN r.notes AS n"))[0].n, /already defined by another resource/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

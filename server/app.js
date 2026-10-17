@@ -72,7 +72,7 @@ export function createApp(ctx, cfg = config) {
   }));
   api.get('/library/exercises', asyncH(async (req, res) => ok(res, await req.s.catalog.exerciseSummary())));
   api.get('/library/topics', asyncH(async (req, res) => ok(res, await req.s.catalog.topics())));
-  api.get('/library/kanji-references', asyncH(async (req, res) => ok(res, await req.s.catalog.kanjiReferences())));
+  api.get('/library/stroke-references', asyncH(async (req, res) => ok(res, await req.s.catalog.strokeReferences())));
   api.get('/library/item', asyncH(async (req, res) => {
     const item = await req.s.catalog.getConcept(id(req.query.id, 'id'));
     if (!item) throw new HttpError(404, 'Item not found', 'not_found');
