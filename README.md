@@ -66,9 +66,12 @@ In AI mode the LLM only rewords explanations / answers questions from graph evid
 and any failure falls back to the deterministic text. Recommendations themselves are always rule-based on the graph.
 
 ## What's in the app
-* **Today** – plan, evidence (“why?”), progress, recent activity/mistakes, grammar to revise, due items, listening pick, learner-memory graph.
+* **Today** – plan, evidence (“why?”), **learning path**, progress, recent activity/mistakes, grammar to revise, due items, listening pick, learner-memory graph.
+  The learning path orders the material for a beginner: Hiragana → Katakana → First words → Sentence patterns (grammar in prerequisite order) → First kanji → JLPT N5 extension.
+  Each step shows *Completed* / *You are here* / *Upcoming*, what it builds on, progress, *Continue this step* and a *Revisit* link into the Library; a new profile also gets a short “Start here” note.
+  New material always comes from the current step; revision (recurring mistakes, due items) still comes first. The path is computed from the existing `STUDIES` edges, so no progress is reset.
 * **Practice** – Tutor briefing → Examiner questions (multiple choice, typed, flashcards; vocabulary, kana, kanji, grammar) → graded feedback with the memory update → summary and next recommendation. A reload resumes the session.
-* **Library** – search by Japanese, kana, romaji, English or tag; vocabulary, kana, kanji, stroke order (counts + any linked reference files), grammar, reading (links to Lazy Benkyou's Story Reader), listening, exercises (original vs generated).
+* **Library** – deep-linkable from the learning path (e.g. `#/library?tab=kana&topic=hiragana`); search by Japanese, kana, romaji, English or tag; vocabulary, kana, kanji, stroke order (counts + any linked reference files), grammar, reading (links to Lazy Benkyou's Story Reader), listening, exercises (original vs generated).
 * **Listening** – 15 verified Lazy Benkyou videos, embed + direct link, saved lessons, notes, comprehension ratings. No transcripts exist, so transcript practice is honestly unavailable.
 * **Memory** – real agent timeline, the three memory types, preference editor, bounded graph explorer, source-grounded “Ask the Tutor”, reset.
 
@@ -79,8 +82,8 @@ REST API (all JSON `{ok, data | error}`; learner via `X-Learner-Id`): `GET /api/
 ## Verification status (honest)
 
 Run in the development sandbox on **Oct 17 2026**:
-* ✅ `npm test` — 45 tests (19 unit + 26 integration) pass against a **real FalkorDB module (v4.18.3)**: ingestion with the real CSV/JSON schemas, every recognised PDF study-list layout, local files never overwriting original content, unsupported/broken file handling, a real PDF with Japanese text,
-  repeat-ingestion without duplicates, idempotent attempts (including concurrent duplicates), memory change after an attempt, recommendation change after a session, agent handoff chain from stored events,
+* ✅ `npm test` — 47 tests (21 unit + 26 integration) pass against a **real FalkorDB module (v4.18.3)**: ingestion with the real CSV/JSON schemas, every recognised PDF study-list layout, local files never overwriting original content, unsupported/broken file handling, a real PDF with Japanese text,
+  repeat-ingestion without duplicates, learning-path order and next-step selection, idempotent attempts (including concurrent duplicates), memory change after an attempt, recommendation change after a session, agent handoff chain from stored events,
   procedural preferences, listening logs, bounded graph queries, injection attempts, secrets not in any response or in browser code, DB-down behaviour.
 * ✅ Real headless Chromium run of the UI (desktop 1200 px and mobile 390 px): all five pages load with **no console/CSP errors**, no horizontal overflow, and the two-session demo completes through the UI. This found and fixed a real bug (Unicode ids rejected by validation).
 * ✅ `docker compose config` validates the Compose file; the Lazy Benkyou links, channel feed and each video's embeddability (oEmbed) were checked live against YouTube.
@@ -93,6 +96,9 @@ Run in the development sandbox on **Oct 17 2026**:
 * The original content is small by design (56 words, 26 kanji, 16 grammar points, 92 kana). With the JLPT N5 files in `resources/local/` the library holds 856 words, 103 kanji and 152 grammar points;
   that material comes from third-party lists (see `docs/RESOURCE_INVENTORY.md`) and carries their quirks. Stroke order is linked as **pages** of the reference PDFs (79 kanji, 92 kana), never animated or verified.
 * The per-learner write lock is in-process (single app instance).
+* The learning path has no greetings/conversation step: the provided materials don't cover that topic, so none was invented. A step counts as completed once every item has been practised at least once
+  (not mastered). The demo learner's seeded history skipped kana, so once her revision clears she continues at Step 1 (Hiragana); her earlier progress is kept and shown.
+  The last step (JLPT N5 extension) has no finer ordering and keeps the earlier grammar + vocabulary mix.
 * Topic links between concepts and lessons rely on keywords in video titles; when nothing matches, the app says so instead of inventing a link.
 
 ## Troubleshooting
