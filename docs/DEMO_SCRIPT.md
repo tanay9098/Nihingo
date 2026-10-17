@@ -14,7 +14,9 @@ a persistent FalkorDB graph. Aiko's three earlier sessions are **seeded demo dat
 1. **Today** shows *Targeted revision — に*: “You answered 3 questions about に incorrectly across 3 sessions (estimated mastery 0.078)…”.
 2. Open **Why this recommendation?** → rule *Recurring mistake*, *3 mistakes in 3 sessions (3 from seeded demo history, 0 from live answers)*, graph path info, memory version.
 3. Point at **Recently missed** (all *demo data*), **Grammar needing revision** (に struggling, で learning) and the **Learner memory graph** (red edge = struggling).
-4. Point out the mode badge: **Demo mode** — no LLM key, real FalkorDB persistence, deterministic agents.
+4. Point at **Your learning path**: Aiko's seeded sessions only covered grammar and vocabulary, so *Hiragana* is “You are here” while *First words* (3/56) and *Sentence patterns* (4/16) already show progress.
+   Revision comes first, so today's plan is に; new items are drawn from the current step.
+5. Point out the mode badge: **Demo mode** — no LLM key, real FalkorDB persistence, deterministic agents.
 
 ## 2. Session 1 — the learner repeats the mistakes (60 s)
 1. **Start today's session**. The Tutor briefing shows the に explanation (from `grammar.json`, with source). The Examiner's five questions each show **why** they were chosen:
@@ -22,8 +24,8 @@ a persistent FalkorDB graph. Aiko's three earlier sessions are **seeded demo dat
    2. `家＿本を読みます。 (where the action happens)` — *Confusable with に (CONTRASTS_WITH)* ← graph-derived
    3. `月曜日＿学校に行きます。 (time)` — *Revision of a recurring mistake*
    4. `station` — *Due for review*
-   5. `私は先生＿＿。` — *New material*
-2. **Deliberately answer every question wrong** (any option except the correct one: に for Q1/Q3, で for Q2). After each answer the feedback shows the memory update, e.g.
+   5. `a (hiragana)` — *New material · Step 1: Hiragana* ← from the learning path
+2. **Deliberately answer every question wrong** (any option except the correct one: に for Q1/Q3, で for Q2, あ for Q5). After each answer the feedback shows the memory update, e.g.
    *に: estimated mastery 0.078 → 0.037 · struggling*.
 3. **Finish session**.
 
@@ -35,7 +37,7 @@ The summary page now says **Compare confusable concepts — に + で**: “You 
 
 ## 4. Session 2 — the Tutor reads the updated state (45 s)
 1. **Start the next session**: the Tutor's explanation is the new one; questions are labelled *Side-by-side revision of confusable concepts* (に and で together).
-2. Answer correctly this time. Finish: score 100 %, mastery rises (に 0.031 → 0.125 → 0.196), and the next recommendation moves on to **で** alone (*2 mistakes across 2 sessions; 1 demo, 1 live*) because に has recovered (last two answers right).
+2. Answer correctly this time (Q5 is the next hiragana, `i (hiragana)`). Finish: score 100 %, mastery rises (に 0.031 → 0.125 → 0.196), and the next recommendation moves on to **で** alone (*2 mistakes across 2 sessions; 1 demo, 1 live*) because に has recovered (last two answers right).
 
 ## 5. Proof it is real graph state (60 s)
 1. **Memory** page → **Agent activity**: each row is an `AgentEvent` node — *Read / Changed / Output* are real values; the Session-2 Tutor event shows `storedRecommendation.id` = the recommendation the Planner wrote at the end of Session 1.
@@ -53,6 +55,7 @@ Remove or change it any time; inferred preferences can be deleted with “That's
 **Listening** → recommended lesson with its reason; “Watch” plays through YouTube's official embed, with a direct YouTube link as fallback. Levels shown are only those stated in the
 video titles (*N5 (per title)*). Rate comprehension 1–5 with a note → stored as `ListeningLog` in episodic memory. A rating of 1–2 on a fresh profile makes the Planner recommend
 revising concepts that share the lesson's topic (switch to **My profile** to show it: rate a food/café lesson 1 → *Topic revision*).
+**My profile** also shows the beginner view: the “Start here” note, Step 1 *Hiragana* as “You are here”, and a first session of あ, い, う.
 
 ## 8. Reset
 **Memory → Restore seeded demo** returns Aiko to the starting state so the demo can be repeated.

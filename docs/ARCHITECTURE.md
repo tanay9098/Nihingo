@@ -41,7 +41,7 @@ FalkorDB  (persistent: AOF + volume)                 optional: GraphRAG-SDK side
 | `Mistake` | `given`, `expected`, `prompt`, `isDemo` | One per wrong attempt. |
 | `ListeningLog` | `rating (1–5)`, `note`, `isDemo` | Self-reported comprehension. |
 | `LearningPreference` | `key`, `value`, `source` (`explicit` \| `inferred`), `evidenceCount`, `evidence` | Procedural. |
-| `Recommendation` | `role` (`study` \| `listen`), `activity`, `reason`, `evidence` (JSON), `stateVersion`, `status` | Old ones become `superseded`, not deleted. |
+| `Recommendation` | `role` (`study` \| `listen`), `activity`, `reason`, `evidence` (JSON, incl. `stage`: the learner's learning-path step), `stateVersion`, `status` | Old ones become `superseded`, not deleted. |
 | `AgentEvent` | `agent`, `action`, `retrieved`, `changed`, `output`, `at`, `seq` | The real timeline; never synthesised. |
 
 | Relationship | Meaning |
@@ -71,7 +71,7 @@ The agents never call each other with data; they hand off **ids** and re-read th
    ≠ `Learner.memoryVersion` it hands off to the **Planner** to re-plan. It then retrieves the concept cards + source resources and
    writes the explanation (deterministic template in demo mode; LLM-reworded but number-checked in AI mode).
 3. **Examiner** chooses N exercises: targeted slots for the focus (plus its `CONTRASTS_WITH` partner), other overdue items, then new
-   material; format follows explicit > inferred preference; recently-seen exercises are de-prioritised. Writes `SELECTED` edges.
+   material from the learner's current learning-path step (in a `new_material` session, the step's next items round-robin); format follows explicit > inferred preference; recently-seen exercises are de-prioritised. Writes `SELECTED` edges.
 4. Learner answers → `POST /api/attempts` (client-generated `attemptId`).
 5. **Examiner** grades it with explicit rules (`server/agents/grade.js`): exact choice; kana-normalised typed answers (katakana→hiragana,
    romaji accepted); meaning recall with variants and a 1-edit typo tolerance **flagged as ambiguous**; `also_valid` answers (e.g. へ for に)
@@ -88,7 +88,7 @@ Every step writes an `AgentEvent` containing what it read, what it changed and w
 | --- | --- | --- |
 | Episodic | `LearningSession`, `Attempt`, `Mistake`, `ListeningLog`, `AgentEvent` | Recurring-mistake detection, evidence, timeline |
 | Semantic | `STUDIES` edges (estimated mastery), concept graph, recommendations | What to revise / learn next. Mastery is an *estimate of the learner*, not a fact about Japanese. |
-| Procedural | `LearningPreference` | Explicit: session length, format, listening on/off, revision pace (multiplies review intervals). Inferred: per-format accuracy (`affinity:*`) and `inferred_format` only when a format has ≥ 4 attempts and beats the others by ≥ 20 points. Learners can override or delete any of it. |
+| Procedural | `LearningPreference`; the learning path (`server/agents/pathway.js`) | The recommended order of study (path steps, computed from `STUDIES` edges, never stored separately). Explicit: session length, format, listening on/off, revision pace (multiplies review intervals). Inferred: per-format accuracy (`affinity:*`) and `inferred_format` only when a format has ≥ 4 attempts and beats the others by ≥ 20 points. Learners can override or delete any of it. |
 
 **Mastery** = lower bound of a Wilson score interval (z = 1.28) on correct/attempts, multiplied by 0.6 after a miss; `mastered` needs ≥ 4
 attempts, mastery ≥ 0.6 and the last two answers right; `struggling` needs ≥ 2 misses among the last 6 answers including one of the last 3.

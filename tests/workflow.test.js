@@ -52,6 +52,8 @@ test('session 1: Tutor -> Examiner hand off through the graph; questions target 
   assert.equal(ids.length, 5);
   assert.ok(ids.some((id) => id.startsWith('ex:gs-ni-')), 'targets the struggling concept');
   assert.ok(ids.some((id) => id.includes('gs-de-')), 'includes the CONTRASTS_WITH partner');
+  // new items in a revision session come from the learner's current learning-path step (Aiko has no kana yet)
+  assert.ok(s1.exercises.some((e) => e.id.startsWith('ex:kana:') && e.reason === 'New material · Step 1: Hiragana'), 'new material follows the learning path');
   assert.ok(s1.exercises.every((e) => !('answer' in e) && !('accept' in e) && !('explanation' in e)), 'answers are never sent to the browser');
   const ev = await env.memory.events(L, { sessionId: 'test-s1' });
   assert.deepEqual(ev.map((e) => `${e.agent}:${e.action}`), ['tutor:retrieve_memory', 'tutor:recommend_and_explain', 'examiner:select_exercises']);
