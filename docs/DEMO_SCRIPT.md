@@ -3,8 +3,7 @@
 Everything below was run against a real FalkorDB; the numbers are what the app produced. The exact same flow runs headlessly with
 `npm run demo:flow` (prints every recommendation, evidence line and agent handoff).
 
-**Before you start:** `docker compose up --build` (or `npm start`), open <http://localhost:3001>, keep the profile on **Demo learner (Aiko)**.
-(If ports 6379/3001 are taken by another container, start with `FALKORDB_PORT=6380 PORT=3002 npm start` against a FalkorDB published on 6380 — see the README — and use <http://localhost:3002> instead.)
+**Before you start:** `docker compose up --build` (or `npm start`), open <http://localhost:3002>, keep the profile on **Demo learner (Aiko)**.
 If someone already clicked around: **Memory → Reset the demo → Restore seeded demo**.
 
 ## 0. Setup talk track (20 s)

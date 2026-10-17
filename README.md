@@ -19,34 +19,26 @@ built for the FalkorDB hackathon, **Track 2: Agent Memory and Coordination**.
 cp .env.example .env          # optional: set FALKORDB_PASSWORD, LLM_*; defaults work as-is
 docker compose up --build
 ```
-Open <http://localhost:3001>. FalkorDB Browser is at <http://localhost:3000>. On first boot the app creates the schema, ingests `resources/`, and seeds the demo learner.
+Open <http://localhost:3002>. FalkorDB Browser is at <http://localhost:3000>. On first boot the app creates the schema, ingests `resources/`, and seeds the demo learner.
 Data persists in the `falkordb_data` volume (AOF enabled). Add `--profile graphrag` to also start the optional GraphRAG-SDK sidecar.
 
 ### Option B — Node locally + FalkorDB in Docker
 ```bash
-docker run -p 6379:6379 -p 3000:3000 -d --name falkordb falkordb/falkordb:v4.18.9
+docker run -d --name nihongo-falkordb -p 6380:6379 -p 3000:3000 falkordb/falkordb:v4.18.9
 npm install
-npm start                      # http://localhost:3001
+npm start                      # http://localhost:3002
 ```
+The database is published on host port **6380** (the container itself still listens on its own 6379) and the app runs on **3002**; both are the defaults, so no `.env` is needed.
+If `docker run` says `port is already allocated`, something else uses that host port — check with `docker ps -a` and `sudo ss -ltnp | grep -E '6380|3000|3002'`, and remove a stale container of the same name with `docker rm nihongo-falkordb`.
+On later runs the container already exists: `docker start nihongo-falkordb`, then `npm start`.
 Requires Node ≥ 20 (developed on 22). Optional: `poppler-utils` (`pdftotext`) enables PDF text extraction during ingestion.
-
-**Ports 6379 / 3001 already taken** (e.g. another FalkorDB or Redis container is running — `docker run` fails with `port is already allocated`, or the app crashes with `SocketClosedUnexpectedlyError`)?
-Run this project's database and app on free ports instead (check with `docker ps -a` and `sudo ss -ltnp | grep -E '6379|3001'`):
-```bash
-docker rm falkordb 2>/dev/null          # remove a failed/stale container of the same name
-docker run -d --name nihongo-falkordb -p 6380:6379 -p 3003:3000 falkordb/falkordb:v4.18.9
-npm install
-FALKORDB_PORT=6380 PORT=3002 npm start  # http://localhost:3002 (FalkorDB Browser: http://localhost:3003)
-```
-Or put `FALKORDB_PORT=6380` and `PORT=3002` in `.env` and run plain `npm start`. On later runs the container already exists: `docker start nihongo-falkordb`, then start the app as above.
-Use the same `FALKORDB_PORT` for `npm run ingest`, `npm run seed:demo`, `npm run demo:flow` and `npm test`.
 
 ### Option C — no Docker
 Any Redis server that can load the FalkorDB module works, e.g. with the module bundled in the `falkordblite` wheel:
 ```bash
 pip install falkordblite
 B=$(python -c "import redislite,os;print(os.path.join(os.path.dirname(redislite.__file__),'bin'))")
-$B/redis-server --port 6379 --appendonly yes --loadmodule $B/falkordb.so --daemonize yes
+$B/redis-server --port 6380 --appendonly yes --loadmodule $B/falkordb.so --daemonize yes
 npm install && npm start
 ```
 
@@ -64,8 +56,8 @@ npm install && npm start
 ## Configuration (`.env.example`)
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `FALKORDB_HOST` / `FALKORDB_PORT` / `FALKORDB_PASSWORD` / `FALKORDB_GRAPH` | localhost / 6379 / empty / `nihongo` | Server-side DB connection (never sent to the browser). Use `FALKORDB_PORT=6380` if 6379 is taken |
-| `PORT` | 3001 | App port (use e.g. `3002` if 3001 is taken) |
+| `FALKORDB_HOST` / `FALKORDB_PORT` / `FALKORDB_PASSWORD` / `FALKORDB_GRAPH` | localhost / 6380 / empty / `nihongo` | Server-side DB connection (never sent to the browser) |
+| `PORT` | 3002 | App port |
 | `AUTO_BOOTSTRAP` | 1 | `0` skips ingestion/seeding on boot |
 | `LLM_PROVIDER` (`anthropic`\|`openai`), `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL` | empty | **AI mode** only when provider + key + model are all set; otherwise **Demo mode** (shown in the header badge and `/api/health`) |
 | `GRAPHRAG_URL` | empty | Optional GraphRAG-SDK sidecar (see `graphrag/README.md`) |
@@ -107,8 +99,8 @@ Run in the development sandbox on **Oct 17 2026**:
 | --- | --- |
 | “The graph database is starting up” / health returns 503 | FalkorDB isn't reachable yet. `docker compose ps`; check `FALKORDB_HOST/PORT/PASSWORD`. The app retries for ~60 s. |
 | `NOAUTH` / `WRONGPASS` errors | Set the same `FALKORDB_PASSWORD` for the app and the database (Compose passes it as `--requirepass`). |
-| Port already in use (`port is already allocated`, `EADDRINUSE`) | Change `PORT` / `FALKORDB_PORT` in `.env`, e.g. `FALKORDB_PORT=6380` and `PORT=3002` (see the port-conflict note under Option B; with Compose, the same two variables change the host ports). |
-| `SocketClosedUnexpectedlyError` / `Unhandled 'error' event` at startup | Something that isn't this project's FalkorDB answers on `FALKORDB_PORT` (often another Redis/FalkorDB container), or the DB container never started. Check `docker ps -a`, then use free ports as above (`FALKORDB_PORT=6380 PORT=3002`). |
+| Port already in use (`port is already allocated`, `EADDRINUSE`) | Find what holds the port (`docker ps -a`, `sudo ss -ltnp \| grep -E '6380\|3002'`) and stop it, or change `PORT` / `FALKORDB_PORT` in `.env` (with Compose the same two variables change the host ports). |
+| `SocketClosedUnexpectedlyError` / `Unhandled 'error' event` at startup | Something that isn't this project's FalkorDB answers on `FALKORDB_PORT`, or the DB container never started (`docker ps -a`; a container stuck in `Created` means its port was taken). Remove it with `docker rm nihongo-falkordb` and start it again (Option B). |
 | Empty library / no demo data | `AUTO_BOOTSTRAP=0` is set, or ingestion failed: run `npm run ingest` then `npm run seed:demo`. |
 | PDFs show as “linked” only | Install `poppler-utils` (`pdftotext`, `pdfinfo`). Image-only PDFs can't be text-extracted. |
 | YouTube video won't play | Offline/blocked/embedding disabled: use the “Open it on YouTube” link. The rest of the app is unaffected. |
