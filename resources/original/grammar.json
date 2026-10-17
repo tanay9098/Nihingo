@@ -1,0 +1,352 @@
+[
+ {
+  "id": "g-desu",
+  "name": "〜です (polite copula)",
+  "pattern": "A は B です",
+  "level": "beginner",
+  "explanation": "Polite way to say 'A is B'. です ends the sentence politely.",
+  "examples": [
+   {
+    "jp": "私は学生です。",
+    "reading": "わたしはがくせいです。",
+    "en": "I am a student."
+   }
+  ],
+  "tags": [
+   "identity",
+   "polite"
+  ],
+  "requires": [],
+  "contrasts": []
+ },
+ {
+  "id": "g-wa",
+  "name": "は (topic marker)",
+  "pattern": "A は …",
+  "level": "beginner",
+  "explanation": "Marks the topic of the sentence — what you are talking about. Written は but pronounced 'wa'.",
+  "examples": [
+   {
+    "jp": "私は先生です。",
+    "reading": "わたしはせんせいです。",
+    "en": "I am a teacher."
+   }
+  ],
+  "tags": [
+   "particle"
+  ],
+  "requires": [
+   "g-desu"
+  ],
+  "contrasts": []
+ },
+ {
+  "id": "g-wo",
+  "name": "を (object marker)",
+  "pattern": "Noun を Verb",
+  "level": "beginner",
+  "explanation": "Marks the direct object of a verb. Written を, pronounced 'o'.",
+  "examples": [
+   {
+    "jp": "水を飲みます。",
+    "reading": "みずをのみます。",
+    "en": "I drink water."
+   }
+  ],
+  "tags": [
+   "particle"
+  ],
+  "requires": [
+   "g-masu"
+  ],
+  "contrasts": []
+ },
+ {
+  "id": "g-ni",
+  "name": "に (time, destination, location of existence)",
+  "pattern": "Place/Time に Verb",
+  "level": "beginner",
+  "explanation": "に marks a specific time, a destination of movement (行く, 来る), or where something exists (います/あります).",
+  "examples": [
+   {
+    "jp": "七時に起きます。",
+    "reading": "しちじにおきます。",
+    "en": "I get up at seven."
+   }
+  ],
+  "tags": [
+   "particle"
+  ],
+  "requires": [
+   "g-masu"
+  ],
+  "contrasts": [
+   "g-de"
+  ]
+ },
+ {
+  "id": "g-de",
+  "name": "で (place of action, means)",
+  "pattern": "Place/Means で Verb",
+  "level": "beginner",
+  "explanation": "で marks where an action takes place, or the means/tool used (by train, with a pen).",
+  "examples": [
+   {
+    "jp": "店でパンを買います。",
+    "reading": "みせでパンをかいます。",
+    "en": "I buy bread at the shop."
+   }
+  ],
+  "tags": [
+   "particle"
+  ],
+  "requires": [
+   "g-masu"
+  ],
+  "contrasts": [
+   "g-ni"
+  ]
+ },
+ {
+  "id": "g-exist",
+  "name": "あります / います (existence)",
+  "pattern": "Place に Thing が あります / Person・Animal が います",
+  "level": "beginner",
+  "explanation": "あります is for inanimate things, います for people and animals. The thing that exists is marked with が.",
+  "examples": [
+   {
+    "jp": "犬がいます。",
+    "reading": "いぬがいます。",
+    "en": "There is a dog."
+   }
+  ],
+  "tags": [
+   "existence",
+   "particle"
+  ],
+  "requires": [
+   "g-ni"
+  ],
+  "contrasts": []
+ },
+ {
+  "id": "g-masu",
+  "name": "〜ます (polite present)",
+  "pattern": "Verb stem + ます",
+  "level": "beginner",
+  "explanation": "The polite present/future form of verbs. 食べる → 食べます.",
+  "examples": [
+   {
+    "jp": "毎日本を読みます。",
+    "reading": "まいにちほんをよみます。",
+    "en": "I read books every day."
+   }
+  ],
+  "tags": [
+   "verb",
+   "polite"
+  ],
+  "requires": [],
+  "contrasts": []
+ },
+ {
+  "id": "g-masen",
+  "name": "〜ません (polite negative)",
+  "pattern": "Verb stem + ません",
+  "level": "beginner",
+  "explanation": "The polite negative form: 食べます → 食べません.",
+  "examples": [
+   {
+    "jp": "魚を食べません。",
+    "reading": "さかなをたべません。",
+    "en": "I do not eat fish."
+   }
+  ],
+  "tags": [
+   "verb",
+   "polite"
+  ],
+  "requires": [
+   "g-masu"
+  ],
+  "contrasts": [
+   "g-mashita"
+  ]
+ },
+ {
+  "id": "g-mashita",
+  "name": "〜ました (polite past)",
+  "pattern": "Verb stem + ました",
+  "level": "beginner",
+  "explanation": "The polite past form: 見ます → 見ました.",
+  "examples": [
+   {
+    "jp": "昨日、映画を見ました。",
+    "reading": "きのう、えいがをみました。",
+    "en": "I watched a movie yesterday."
+   }
+  ],
+  "tags": [
+   "verb",
+   "polite"
+  ],
+  "requires": [
+   "g-masu"
+  ],
+  "contrasts": [
+   "g-masen"
+  ]
+ },
+ {
+  "id": "g-i-adj",
+  "name": "い-adjectives",
+  "pattern": "〜い / 〜くないです",
+  "level": "beginner",
+  "explanation": "い-adjectives end in い. The polite negative replaces い with くないです: おいしい → おいしくないです.",
+  "examples": [
+   {
+    "jp": "このパンは安いです。",
+    "reading": "このパンはやすいです。",
+    "en": "This bread is cheap."
+   }
+  ],
+  "tags": [
+   "adjective"
+  ],
+  "requires": [
+   "g-desu"
+  ],
+  "contrasts": [
+   "g-na-adj"
+  ]
+ },
+ {
+  "id": "g-na-adj",
+  "name": "な-adjectives",
+  "pattern": "〜な + Noun",
+  "level": "beginner",
+  "explanation": "な-adjectives need な before a noun: 元気な人. Before です they stay as is: 元気です.",
+  "examples": [
+   {
+    "jp": "元気な犬です。",
+    "reading": "げんきないぬです。",
+    "en": "It is a lively dog."
+   }
+  ],
+  "tags": [
+   "adjective"
+  ],
+  "requires": [
+   "g-desu"
+  ],
+  "contrasts": [
+   "g-i-adj"
+  ]
+ },
+ {
+  "id": "g-tai",
+  "name": "〜たい (want to)",
+  "pattern": "Verb stem + たい",
+  "level": "beginner",
+  "explanation": "Express wanting to do something: 飲む → 飲みたいです.",
+  "examples": [
+   {
+    "jp": "水を飲みたいです。",
+    "reading": "みずをのみたいです。",
+    "en": "I want to drink water."
+   }
+  ],
+  "tags": [
+   "verb",
+   "desire"
+  ],
+  "requires": [
+   "g-masu"
+  ],
+  "contrasts": []
+ },
+ {
+  "id": "g-te",
+  "name": "〜て form + ください",
+  "pattern": "Verb て-form + ください",
+  "level": "beginner",
+  "explanation": "The て-form plus ください makes a polite request: 書く → 書いてください.",
+  "examples": [
+   {
+    "jp": "ここに名前を書いてください。",
+    "reading": "ここになまえをかいてください。",
+    "en": "Please write your name here."
+   }
+  ],
+  "tags": [
+   "verb",
+   "request"
+  ],
+  "requires": [
+   "g-masu"
+  ],
+  "contrasts": []
+ },
+ {
+  "id": "g-ka",
+  "name": "か (question particle)",
+  "pattern": "Sentence + か",
+  "level": "beginner",
+  "explanation": "Adding か to the end of a polite sentence turns it into a question.",
+  "examples": [
+   {
+    "jp": "元気ですか。",
+    "reading": "げんきですか。",
+    "en": "Are you well?"
+   }
+  ],
+  "tags": [
+   "particle",
+   "question"
+  ],
+  "requires": [
+   "g-desu"
+  ],
+  "contrasts": []
+ },
+ {
+  "id": "g-no",
+  "name": "の (possession / connection)",
+  "pattern": "Noun A の Noun B",
+  "level": "beginner",
+  "explanation": "の connects nouns: A's B, or B of A.",
+  "examples": [
+   {
+    "jp": "これは私の本です。",
+    "reading": "これはわたしのほんです。",
+    "en": "This is my book."
+   }
+  ],
+  "tags": [
+   "particle"
+  ],
+  "requires": [],
+  "contrasts": []
+ },
+ {
+  "id": "g-mo",
+  "name": "も (also / too)",
+  "pattern": "Noun も …",
+  "level": "beginner",
+  "explanation": "も replaces は, を or が to mean 'also'.",
+  "examples": [
+   {
+    "jp": "私も学生です。",
+    "reading": "わたしもがくせいです。",
+    "en": "I am a student too."
+   }
+  ],
+  "tags": [
+   "particle"
+  ],
+  "requires": [
+   "g-wa"
+  ],
+  "contrasts": []
+ }
+]

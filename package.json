@@ -1,0 +1,24 @@
+{
+  "name": "nihongo-graph",
+  "version": "1.0.0",
+  "description": "Graph-powered Japanese learning companion: persistent FalkorDB memory + three coordinated agents.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "init": "node scripts/initialize-graph.js",
+    "ingest": "node scripts/ingest-resources.js",
+    "seed:demo": "node scripts/seed-demo.js",
+    "catalog": "node scripts/refresh-listening-catalog.js",
+    "test": "node --test --test-concurrency=1 \"tests/*.test.js\"",
+    "demo:flow": "node scripts/demo-flow.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "falkordb": "^6.8.0"
+  },
+  "license": "MIT"
+}

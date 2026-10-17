@@ -1,0 +1,36 @@
+# secrets / local config
+.env
+.env.*
+!.env.example
+
+# dependencies and build artifacts
+node_modules/
+dist/
+build/
+coverage/
+*.log
+npm-debug.log*
+
+# caches
+.cache/
+.npm/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# local databases / dumps
+*.rdb
+*.aof
+falkordb-data/
+data/
+
+# python virtual environments
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

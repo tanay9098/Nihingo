@@ -1,0 +1,57 @@
+word,reading,romaji,meaning,pos,topic,example_jp,example_reading,example_en
+水,みず,mizu,water,noun,food,水を飲みます。,みずをのみます。,I drink water.
+食べる,たべる,taberu,to eat,verb,food,朝ごはんを食べます。,あさごはんをたべます。,I eat breakfast.
+飲む,のむ,nomu,to drink,verb,food,お茶を飲みます。,おちゃをのみます。,I drink tea.
+お茶,おちゃ,ocha,tea,noun,food,お茶をください。,おちゃをください。,"Tea, please."
+ごはん,ごはん,gohan,cooked rice; meal,noun,food,ごはんを食べました。,ごはんをたべました。,I ate a meal.
+パン,パン,pan,bread,noun,food,朝、パンを食べます。,あさ、パンをたべます。,I eat bread in the morning.
+魚,さかな,sakana,fish,noun,food,魚を食べます。,さかなをたべます。,I eat fish.
+おいしい,おいしい,oishii,delicious,i-adj,food,このお茶はおいしいです。,このおちゃはおいしいです。,This tea is delicious.
+学校,がっこう,gakkou,school,noun,places,学校に行きます。,がっこうにいきます。,I go to school.
+駅,えき,eki,station,noun,places,駅で友だちを待ちます。,えきでともだちをまちます。,I wait for a friend at the station.
+店,みせ,mise,shop; store,noun,places,店でパンを買います。,みせでパンをかいます。,I buy bread at the shop.
+家,いえ,ie,house; home,noun,places,家に帰ります。,いえにかえります。,I return home.
+病院,びょういん,byouin,hospital,noun,health,病院に行きました。,びょういんにいきました。,I went to the hospital.
+薬,くすり,kusuri,medicine,noun,health,薬を飲みます。,くすりをのみます。,I take medicine.
+病気,びょうき,byouki,illness; sick,noun,health,母は病気です。,はははびょうきです。,My mother is sick.
+行く,いく,iku,to go,verb,verbs,駅に行きます。,えきにいきます。,I go to the station.
+来る,くる,kuru,to come,verb,verbs,友だちが来ます。,ともだちがきます。,A friend is coming.
+見る,みる,miru,to see; to watch,verb,verbs,テレビを見ます。,テレビをみます。,I watch TV.
+買う,かう,kau,to buy,verb,shopping,本を買います。,ほんをかいます。,I buy a book.
+読む,よむ,yomu,to read,verb,verbs,新聞を読みます。,しんぶんをよみます。,I read the newspaper.
+書く,かく,kaku,to write,verb,verbs,名前を書きます。,なまえをかきます。,I write my name.
+聞く,きく,kiku,to listen; to ask,verb,verbs,音楽を聞きます。,おんがくをききます。,I listen to music.
+話す,はなす,hanasu,to speak; to talk,verb,verbs,友だちと話します。,ともだちとはなします。,I talk with a friend.
+買い物,かいもの,kaimono,shopping,noun,shopping,買い物に行きます。,かいものにいきます。,I go shopping.
+高い,たかい,takai,expensive; tall,i-adj,shopping,この本は高いです。,このほんはたかいです。,This book is expensive.
+安い,やすい,yasui,cheap,i-adj,shopping,このパンは安いです。,このパンはやすいです。,This bread is cheap.
+大きい,おおきい,ookii,big,i-adj,adjectives,大きい犬です。,おおきいいぬです。,It is a big dog.
+小さい,ちいさい,chiisai,small,i-adj,adjectives,小さい店です。,ちいさいみせです。,It is a small shop.
+好き,すき,suki,to like; fond of,na-adj,adjectives,猫が好きです。,ねこがすきです。,I like cats.
+元気,げんき,genki,healthy; energetic,na-adj,adjectives,元気ですか。,げんきですか。,Are you well?
+今日,きょう,kyou,today,noun,time,今日は月曜日です。,きょうはげつようびです。,Today is Monday.
+明日,あした,ashita,tomorrow,noun,time,明日学校に行きます。,あしたがっこうにいきます。,I will go to school tomorrow.
+昨日,きのう,kinou,yesterday,noun,time,昨日、映画を見ました。,きのう、えいがをみました。,I watched a movie yesterday.
+今,いま,ima,now,noun,time,今、何時ですか。,いま、なんじですか。,What time is it now?
+時間,じかん,jikan,time; hours,noun,time,時間があります。,じかんがあります。,I have time.
+毎日,まいにち,mainichi,every day,noun,time,毎日本を読みます。,まいにちほんをよみます。,I read books every day.
+朝,あさ,asa,morning,noun,time,朝、お茶を飲みます。,あさ、おちゃをのみます。,I drink tea in the morning.
+夜,よる,yoru,night; evening,noun,time,夜、本を読みます。,よる、ほんをよみます。,I read a book at night.
+月曜日,げつようび,getsuyoubi,Monday,noun,time,月曜日に学校に行きます。,げつようびにがっこうにいきます。,I go to school on Monday.
+友だち,ともだち,tomodachi,friend,noun,people,友だちが来ます。,ともだちがきます。,A friend is coming.
+先生,せんせい,sensei,teacher,noun,people,先生は学校にいます。,せんせいはがっこうにいます。,The teacher is at school.
+母,はは,haha,mother (own),noun,family,母は元気です。,はははげんきです。,My mother is well.
+父,ちち,chichi,father (own),noun,family,父は家にいます。,ちちはいえにいます。,My father is at home.
+犬,いぬ,inu,dog,noun,animals,犬がいます。,いぬがいます。,There is a dog.
+猫,ねこ,neko,cat,noun,animals,猫が好きです。,ねこがすきです。,I like cats.
+電車,でんしゃ,densha,train,noun,transport,電車で学校に行きます。,でんしゃでがっこうにいきます。,I go to school by train.
+車,くるま,kuruma,car,noun,transport,車で店に行きます。,くるまでみせにいきます。,I go to the shop by car.
+道,みち,michi,road; way,noun,directions,この道を行きます。,このみちをいきます。,I take this road.
+右,みぎ,migi,right,noun,directions,右に行きます。,みぎにいきます。,I go to the right.
+左,ひだり,hidari,left,noun,directions,左に行きます。,ひだりにいきます。,I go to the left.
+本,ほん,hon,book,noun,things,本を読みます。,ほんをよみます。,I read a book.
+映画,えいが,eiga,movie,noun,things,映画を見ます。,えいがをみます。,I watch a movie.
+一,いち,ichi,one,number,numbers,りんごが一つあります。,りんごがひとつあります。,There is one apple.
+二,に,ni,two,number,numbers,二時です。,にじです。,It is two o'clock.
+三,さん,san,three,number,numbers,三時です。,さんじです。,It is three o'clock.
+十,じゅう,juu,ten,number,numbers,十時です。,じゅうじです。,It is ten o'clock.

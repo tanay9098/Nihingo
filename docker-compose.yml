@@ -1,0 +1,70 @@
+# Nihongo Graph — FalkorDB + app (+ optional GraphRAG-SDK sidecar).
+#   docker compose up --build                  # demo mode, no LLM key needed
+#   docker compose --profile graphrag up --build   # also start the optional Python GraphRAG sidecar
+#
+# FalkorDB image: falkordb/falkordb (server + FalkorDB Browser on :3000), as in
+# https://docs.falkordb.com/operations/docker . The tag is pinned (override with FALKORDB_IMAGE);
+# use falkordb/falkordb-server for a server-only production image.
+services:
+  falkordb:
+    image: ${FALKORDB_IMAGE:-falkordb/falkordb:v4.18.9}
+    container_name: nihongo-falkordb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FALKORDB_PORT:-6379}:6379"   # Redis protocol (loopback only)
+      - "127.0.0.1:3000:3000"                      # FalkorDB Browser UI
+    environment:
+      FALKORDB_PASSWORD: ${FALKORDB_PASSWORD:-}
+      # --dir pins Redis' data directory to the mounted volume (the docs mention two different paths),
+      # so persistence does not depend on the image's default. AOF keeps every write durable.
+      REDIS_ARGS: "--dir /data --appendonly yes --appendfsync everysec ${FALKORDB_PASSWORD:+--requirepass ${FALKORDB_PASSWORD}}"
+    volumes:
+      - falkordb_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$$FALKORDB_PASSWORD\" ]; then redis-cli -a \"$$FALKORDB_PASSWORD\" --no-auth-warning ping; else redis-cli ping; fi | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  app:
+    build: .
+    container_name: nihongo-app
+    restart: unless-stopped
+    depends_on:
+      falkordb:
+        condition: service_healthy
+    ports:
+      - "${PORT:-3001}:3001"
+    environment:
+      PORT: "3001"
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: "6379"
+      FALKORDB_PASSWORD: ${FALKORDB_PASSWORD:-}
+      FALKORDB_GRAPH: ${FALKORDB_GRAPH:-nihongo}
+      AUTO_BOOTSTRAP: ${AUTO_BOOTSTRAP:-1}   # create schema, ingest resources/, seed the demo learner
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      GRAPHRAG_URL: ${GRAPHRAG_URL:-}
+
+  graphrag:
+    profiles: ["graphrag"]
+    build: ./graphrag
+    container_name: nihongo-graphrag
+    restart: unless-stopped
+    depends_on:
+      falkordb:
+        condition: service_healthy
+    environment:
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: "6379"
+      FALKORDB_PASSWORD: ${FALKORDB_PASSWORD:-}
+      GRAPHRAG_GRAPH: ${GRAPHRAG_GRAPH:-nihongo_rag}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      GRAPHRAG_LLM_MODEL: ${GRAPHRAG_LLM_MODEL:-}
+      GRAPHRAG_EMBED_MODEL: ${GRAPHRAG_EMBED_MODEL:-}
+    expose: ["8010"]
+
+volumes:
+  falkordb_data:

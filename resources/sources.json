@@ -1,0 +1,25 @@
+{
+  "_comment": "Provenance rules. The first rule whose prefix matches a file's path (relative to resources/) is applied. Anything unmatched is treated as user-supplied, license unknown.",
+  "rules": [
+    {
+      "prefix": "original/",
+      "source": "Nihongo Graph — original content",
+      "license": "MIT (same as this repository). Written for this project; not copied from any textbook or website.",
+      "origin": "original",
+      "url": ""
+    },
+    {
+      "prefix": "external/lazybenkyou",
+      "source": "Lazy Benkyou",
+      "license": "Content © Lazy Benkyou Studios LLC. Only titles, ids, dates and thumbnail URLs are stored; videos stay on YouTube.",
+      "origin": "external",
+      "url": "https://lazybenkyou.com/"
+    }
+  ],
+  "default": {
+    "source": "Local resource (user-supplied)",
+    "license": "Unknown — kept local and never redistributed by this app. Add a rule above to record the real license.",
+    "origin": "local",
+    "url": ""
+  }
+}

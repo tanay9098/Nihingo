@@ -1,0 +1,203 @@
+import express from 'express';
+import { config, appMode } from './config.js';
+import { LEARNERS, HttpError } from './services/learning.js';
+import { PREF_RULES } from './agents/planner.js';
+import { seedDemo } from './seed/demo.js';
+
+const ID_RE = /^[\p{L}\p{N}._:\-\/]{1,160}$/u; // Unicode letters allowed: concept ids contain Japanese text
+const ok = (res, data, status = 200) => res.status(status).json({ ok: true, data });
+const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+function str(v, name, { max = 300, required = true } = {}) {
+  if (v == null || v === '') { if (required) throw new HttpError(400, `${name} is required`, 'validation'); return ''; }
+  if (typeof v !== 'string' || v.length > max) throw new HttpError(400, `${name} must be a string of at most ${max} characters`, 'validation');
+  return v;
+}
+function id(v, name, required = true) {
+  const s = str(v, name, { max: 160, required });
+  if (s && !ID_RE.test(s)) throw new HttpError(400, `${name} has an invalid format`, 'validation');
+  return s;
+}
+const int = (v, def, min, max) => {
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def;
+};
+
+/**
+ * @param {{ get: () => Promise<{service:any, catalog:any, memory:any, client:any, rag:any}>, state: () => object }} ctx
+ */
+export function createApp(ctx, cfg = config) {
+  const app = express();
+  app.disable('x-powered-by');
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' https://i.ytimg.com data:; frame-src https://www.youtube-nocookie.com https://www.youtube.com; style-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'");
+    next();
+  });
+  app.use(express.json({ limit: '20kb' }));
+
+  const api = express.Router();
+  api.use((req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
+
+  // The health endpoint works even when the database is down.
+  api.get('/health', asyncH(async (req, res) => {
+    const st = ctx.state();
+    if (!st.ready) return res.status(503).json({ ok: false, error: { code: 'db_unavailable', message: st.error || 'Starting up…' }, data: { mode: appMode(cfg), falkordb: { ok: false } } });
+    const s = await ctx.get();
+    let latencyMs = null, up = true;
+    try { latencyMs = await s.client.ping(); } catch { up = false; }
+    const counts = up ? await s.catalog.counts() : null;
+    ok(res, { status: up ? 'ok' : 'degraded', mode: appMode(cfg), falkordb: { ok: up, latencyMs, graph: cfg.falkor.graph }, counts, graphrag: { sidecarConfigured: !!cfg.ragUrl }, bootstrap: st.bootstrap ?? null });
+  }));
+
+  api.use(asyncH(async (req, res, next) => {
+    try { req.s = await ctx.get(); } catch (e) { throw new HttpError(503, 'The graph database is not reachable yet. Please retry in a moment.', 'db_unavailable'); }
+    const lid = req.get('x-learner-id') || 'learner:demo';
+    if (!LEARNERS[lid]) throw new HttpError(400, 'Unknown learner profile', 'unknown_learner');
+    req.learnerId = lid;
+    next();
+  }));
+
+  api.get('/dashboard', asyncH(async (req, res) => ok(res, await req.s.service.dashboard(req.learnerId))));
+
+  // ----- library (concepts) and resources (files)
+  api.get('/library', asyncH(async (req, res) => {
+    const kind = str(req.query.kind, 'kind', { max: 20, required: false });
+    if (kind && !['vocabulary', 'kanji', 'kana', 'grammar'].includes(kind)) throw new HttpError(400, 'Unknown kind', 'validation');
+    ok(res, await req.s.catalog.search({
+      q: str(req.query.q, 'q', { max: 80, required: false }), kind, topic: str(req.query.topic, 'topic', { max: 40, required: false }),
+      limit: int(req.query.limit, 24, 1, 60), offset: int(req.query.offset, 0, 0, 5000),
+    }));
+  }));
+  api.get('/library/exercises', asyncH(async (req, res) => ok(res, await req.s.catalog.exerciseSummary())));
+  api.get('/library/topics', asyncH(async (req, res) => ok(res, await req.s.catalog.topics())));
+  api.get('/library/kanji-references', asyncH(async (req, res) => ok(res, await req.s.catalog.kanjiReferences())));
+  api.get('/library/item', asyncH(async (req, res) => {
+    const item = await req.s.catalog.getConcept(id(req.query.id, 'id'));
+    if (!item) throw new HttpError(404, 'Item not found', 'not_found');
+    const states = await req.s.memory.getStudyStates(req.learnerId, [item.id]);
+    ok(res, { ...item, learnerState: states[item.id] ?? null });
+  }));
+  api.get('/resources', asyncH(async (req, res) => ok(res, await req.s.catalog.listResources({ limit: int(req.query.limit, 100, 1, 200), offset: int(req.query.offset, 0, 0, 5000) }))));
+  api.get('/resources/:id', asyncH(async (req, res) => {
+    const r = await req.s.catalog.getResource(id(req.params.id, 'id'));
+    if (!r) throw new HttpError(404, 'Resource not found', 'not_found');
+    ok(res, r);
+  }));
+
+  // ----- listening
+  api.get('/listening', asyncH(async (req, res) => {
+    const [lessons, logs] = await Promise.all([req.s.catalog.listLessons(req.learnerId), req.s.memory.listeningLogs(req.learnerId, 30)]);
+    ok(res, { lessons, logs, source: { name: 'Lazy Benkyou', website: 'https://lazybenkyou.com/', start: 'https://lazybenkyou.com/start', youtube: 'https://www.youtube.com/@LazyBenkyou' } });
+  }));
+  api.post('/listening/:lessonId/log', asyncH(async (req, res) => {
+    const lessonId = id(req.params.lessonId, 'lessonId');
+    const rating = Number(req.body.rating);
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new HttpError(400, 'rating must be an integer from 1 to 5', 'validation');
+    const note = str(req.body.note, 'note', { max: 500, required: false });
+    const logId = id(req.body.logId || `ll:${req.learnerId}:${lessonId}:${Date.now()}`, 'logId');
+    const lessons = await req.s.catalog.listLessons(req.learnerId);
+    if (!lessons.find((l) => l.id === lessonId)) throw new HttpError(404, 'Lesson not found', 'not_found');
+    await req.s.memory.logListening({ id: logId, learnerId: req.learnerId, lessonId, rating, note, at: Date.now(), isDemo: false });
+    await req.s.memory.bumpMemoryVersion(req.learnerId);
+    ok(res, { logged: true, logId });
+  }));
+  api.post('/listening/:lessonId/save', asyncH(async (req, res) => {
+    const lessonId = id(req.params.lessonId, 'lessonId');
+    await req.s.memory.setSaved(req.learnerId, lessonId, req.body.saved !== false);
+    ok(res, { saved: req.body.saved !== false });
+  }));
+
+  // ----- learner memory
+  api.get('/learner/memory', asyncH(async (req, res) => ok(res, await req.s.service.memoryView(req.learnerId))));
+  api.get('/learner/sessions', asyncH(async (req, res) => ok(res, await req.s.memory.recentSessions(req.learnerId, int(req.query.limit, 10, 1, 50)))));
+  api.post('/learner/reset', asyncH(async (req, res) => {
+    if (req.body.confirm !== true) throw new HttpError(400, 'Send {"confirm": true} to reset learning progress', 'confirm_required');
+    if (req.learnerId === 'learner:demo') {
+      await seedDemo({ service: req.s.service, memory: req.s.memory });
+      return ok(res, { reset: true, reseeded: true });
+    }
+    await req.s.service.resetLearner(req.learnerId);
+    ok(res, { reset: true, reseeded: false });
+  }));
+
+  // ----- sessions / attempts
+  api.post('/sessions', asyncH(async (req, res) => {
+    ok(res, await req.s.service.startSession(req.learnerId, id(req.body.sessionId, 'sessionId', false) || undefined), 201);
+  }));
+  api.get('/sessions/:id', asyncH(async (req, res) => {
+    const s = await req.s.memory.getSession(id(req.params.id, 'id'));
+    if (!s || s.learnerId !== req.learnerId) throw new HttpError(404, 'Session not found', 'not_found');
+    ok(res, await req.s.service.sessionView(s));
+  }));
+  api.post('/attempts', asyncH(async (req, res) => {
+    const b = req.body;
+    ok(res, await req.s.service.answer({
+      learnerId: req.learnerId, sessionId: id(b.sessionId, 'sessionId'), exerciseId: id(b.exerciseId, 'exerciseId'),
+      attemptId: id(b.attemptId, 'attemptId', false) || undefined, answer: str(typeof b.answer === 'number' ? String(b.answer) : b.answer, 'answer', { max: 300 }), ms: int(b.ms, 0, 0, 3_600_000),
+    }));
+  }));
+  // Flashcards are self-graded, so the card back may be shown before rating — only for exercises in the learner's own session.
+  api.get('/sessions/:sid/reveal/:exerciseId', asyncH(async (req, res) => {
+    const sid = id(req.params.sid, 'sid');
+    const session = await req.s.memory.getSession(sid);
+    if (!session || session.learnerId !== req.learnerId) throw new HttpError(404, 'Session not found', 'not_found');
+    const exId = id(req.params.exerciseId, 'exerciseId');
+    if (!(await req.s.memory.sessionExerciseIds(sid)).includes(exId)) throw new HttpError(400, 'Exercise is not part of this session', 'bad_exercise');
+    const ex = await req.s.memory.getExercise(exId);
+    if (ex.format !== 'flashcard') throw new HttpError(403, 'Only flashcards can be revealed', 'forbidden');
+    const c = await req.s.catalog.getConcept(ex.conceptIds[0]);
+    ok(res, { word: c.word, reading: c.reading, romaji: c.romaji, meaning: c.meaning, example: c.example, exampleReading: c.exampleReading, exampleMeaning: c.exampleMeaning });
+  }));
+  api.post('/sessions/:id/complete', asyncH(async (req, res) => {
+    ok(res, await req.s.service.complete({ learnerId: req.learnerId, sessionId: id(req.params.id, 'id') }));
+  }));
+
+  // ----- recommendations / agents / graph
+  api.get('/recommendations', asyncH(async (req, res) => ok(res, await req.s.service.tutor.brief({ learnerId: req.learnerId }))));
+  api.get('/agents/timeline', asyncH(async (req, res) => {
+    ok(res, await req.s.memory.events(req.learnerId, { limit: int(req.query.limit, 40, 1, 200), sessionId: id(req.query.sessionId, 'sessionId', false) }));
+  }));
+  api.get('/graph/neighborhood', asyncH(async (req, res) => {
+    const center = id(req.query.center || req.learnerId, 'center');
+    ok(res, await req.s.service.neighborhood(center, { depth: int(req.query.depth, 1, 1, 2), limit: int(req.query.limit, 40, 5, 80), all: req.query.all === '1' }));
+  }));
+
+  // ----- feedback (procedural memory) and tutor Q&A
+  api.post('/feedback', asyncH(async (req, res) => {
+    const type = str(req.body.type, 'type', { max: 30 });
+    const p = req.s.service.planner;
+    if (type === 'preference') {
+      const key = str(req.body.key, 'key', { max: 40 });
+      if (!PREF_RULES[key]) throw new HttpError(400, 'Unknown preference key', 'validation');
+      await p.setPreference(req.learnerId, key, String(req.body.value));
+    } else if (type === 'clear_preference') {
+      await p.clearPreference(req.learnerId, str(req.body.key, 'key', { max: 40 }));
+    } else if (type === 'exercise_feedback') {
+      // "too easy"/"too hard" is stored as explicit procedural evidence and nudges session length / format.
+      const verdict = str(req.body.verdict, 'verdict', { max: 12 });
+      if (!['too_easy', 'too_hard', 'just_right'].includes(verdict)) throw new HttpError(400, 'verdict must be too_easy, too_hard or just_right', 'validation');
+      await req.s.memory.upsertPreference({ learnerId: req.learnerId, key: 'last_difficulty_feedback', value: verdict, source: 'explicit', evidenceCount: 1, evidence: 'Learner feedback after a session' });
+      await req.s.memory.bumpMemoryVersion(req.learnerId);
+    } else throw new HttpError(400, 'Unknown feedback type', 'validation');
+    ok(res, { saved: true, preferences: (await req.s.service.memoryView(req.learnerId)).procedural });
+  }));
+  api.post('/tutor/ask', asyncH(async (req, res) => ok(res, await req.s.rag.ask(str(req.body.question, 'question', { max: 200 })))));
+
+  app.use('/api', api);
+  app.use('/api', (req, res) => res.status(404).json({ ok: false, error: { code: 'not_found', message: 'No such endpoint' } }));
+  app.use(express.static(cfg.publicDir, { maxAge: '1h', etag: true, extensions: ['html'] }));
+
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    if (err instanceof HttpError) return res.status(err.status).json({ ok: false, error: { code: err.code, message: err.message } });
+    if (err.type === 'entity.parse.failed') return res.status(400).json({ ok: false, error: { code: 'bad_json', message: 'Request body is not valid JSON' } });
+    if (err.type === 'entity.too.large') return res.status(413).json({ ok: false, error: { code: 'too_large', message: 'Request body too large' } });
+    if (err.status && err.status < 500) return res.status(err.status).json({ ok: false, error: { code: 'bad_request', message: err.message } });
+    console.error('[error]', req.method, req.url, err);
+    const down = /ECONN|socket|timeout|Connection/i.test(err.message || '');
+    res.status(down ? 503 : 500).json({ ok: false, error: { code: down ? 'db_unavailable' : 'internal', message: down ? 'The graph database did not respond in time.' : 'Something went wrong on the server.' } });
+  });
+  return app;
+}

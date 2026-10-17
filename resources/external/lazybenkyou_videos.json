@@ -1,0 +1,277 @@
+{
+  "source": {
+    "name": "Lazy Benkyou",
+    "website": "https://lazybenkyou.com/",
+    "startPage": "https://lazybenkyou.com/start",
+    "youtubeChannel": "https://www.youtube.com/@LazyBenkyou",
+    "channelId": "UCzMTW1vcB1IoPC5GzD0wqoQ",
+    "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCzMTW1vcB1IoPC5GzD0wqoQ"
+  },
+  "license": "Content © Lazy Benkyou Studios LLC. Only metadata and links are stored; videos are embedded via YouTube and never downloaded or redistributed.",
+  "verifiedAt": "2026-10-17T07:34:36.002Z",
+  "verification": "Video ids/titles/dates read from the channel's public YouTube RSS feed; embeddable = YouTube oEmbed returned HTTP 200.",
+  "videos": [
+    {
+      "videoId": "m5lmGrmpAkE",
+      "title": "EP 31: Making a Mistake at a Japanese Cafe | JLPT N5 Listening (Japanese for Beginners)",
+      "published": "2026-10-16",
+      "url": "https://www.youtube.com/watch?v=m5lmGrmpAkE",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/m5lmGrmpAkE",
+      "thumbnail": "https://i.ytimg.com/vi/m5lmGrmpAkE/hqdefault.jpg",
+      "series": "Listening episodes",
+      "episode": 31,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [
+        "food"
+      ],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "UJhXzynaClY",
+      "title": "Japanese Listening Practice — Everyday Situations in Japan | JLPT N5",
+      "published": "2026-10-12",
+      "url": "https://www.youtube.com/watch?v=UJhXzynaClY",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/UJhXzynaClY",
+      "thumbnail": "https://i.ytimg.com/vi/UJhXzynaClY/hqdefault.jpg",
+      "series": "Situational listening practice",
+      "episode": null,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "aAZqm-2WKqE",
+      "title": "EP 30: Ordering at a Japanese Cafe | JLPT N5 Listening (Japanese for Beginners)",
+      "published": "2026-10-09",
+      "url": "https://www.youtube.com/watch?v=aAZqm-2WKqE",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/aAZqm-2WKqE",
+      "thumbnail": "https://i.ytimg.com/vi/aAZqm-2WKqE/hqdefault.jpg",
+      "series": "Listening episodes",
+      "episode": 30,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [
+        "food"
+      ],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "trRT24TmKAg",
+      "title": "Japanese Listening Practice — Telling Time in Japanese | JLPT N5",
+      "published": "2026-10-07",
+      "url": "https://www.youtube.com/watch?v=trRT24TmKAg",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/trRT24TmKAg",
+      "thumbnail": "https://i.ytimg.com/vi/trRT24TmKAg/hqdefault.jpg",
+      "series": "Situational listening practice",
+      "episode": null,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [
+        "time"
+      ],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "l-uPme3Vrro",
+      "title": "Japanese Listening Practice — Making a Reservation in Japan | JLPT N5",
+      "published": "2026-10-04",
+      "url": "https://www.youtube.com/watch?v=l-uPme3Vrro",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/l-uPme3Vrro",
+      "thumbnail": "https://i.ytimg.com/vi/l-uPme3Vrro/hqdefault.jpg",
+      "series": "Situational listening practice",
+      "episode": null,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [
+        "places"
+      ],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "oHXJcIZXwxM",
+      "title": "EP 29: An Evening Walk in a Japanese Neighborhood | JLPT N5 Listening (Japanese for Beginners)",
+      "published": "2026-10-02",
+      "url": "https://www.youtube.com/watch?v=oHXJcIZXwxM",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/oHXJcIZXwxM",
+      "thumbnail": "https://i.ytimg.com/vi/oHXJcIZXwxM/hqdefault.jpg",
+      "series": "Listening episodes",
+      "episode": 29,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [
+        "places"
+      ],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "QQPBmdgezZk",
+      "title": "JLPT N5 Listening Practice — Feeling Sick in Japan",
+      "published": "2026-09-28",
+      "url": "https://www.youtube.com/watch?v=QQPBmdgezZk",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/QQPBmdgezZk",
+      "thumbnail": "https://i.ytimg.com/vi/QQPBmdgezZk/hqdefault.jpg",
+      "series": "Situational listening practice",
+      "episode": null,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [
+        "health"
+      ],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "RKWY_mG9UdY",
+      "title": "EP 28: Nobody Prepares You for the Japanese Doctor | JLPT N5 Listening (Japanese for Beginners)",
+      "published": "2026-09-25",
+      "url": "https://www.youtube.com/watch?v=RKWY_mG9UdY",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/RKWY_mG9UdY",
+      "thumbnail": "https://i.ytimg.com/vi/RKWY_mG9UdY/hqdefault.jpg",
+      "series": "Listening episodes",
+      "episode": 28,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [
+        "health"
+      ],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "fF9SIvsoKn4",
+      "title": "EP 27: What Japanese Friends Actually Say About Money | JLPT N5 Listening (Japanese for Beginners)",
+      "published": "2026-09-18",
+      "url": "https://www.youtube.com/watch?v=fF9SIvsoKn4",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/fF9SIvsoKn4",
+      "thumbnail": "https://i.ytimg.com/vi/fF9SIvsoKn4/hqdefault.jpg",
+      "series": "Listening episodes",
+      "episode": 27,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [
+        "shopping"
+      ],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "AgmvnIQEA2E",
+      "title": "EP 26: She Decided to Actually Cook Tonight | JLPT N5 Listening (Japanese for Beginners)",
+      "published": "2026-09-11",
+      "url": "https://www.youtube.com/watch?v=AgmvnIQEA2E",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/AgmvnIQEA2E",
+      "thumbnail": "https://i.ytimg.com/vi/AgmvnIQEA2E/hqdefault.jpg",
+      "series": "Listening episodes",
+      "episode": 26,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [
+        "food"
+      ],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "dwLXiVIgeIE",
+      "title": "Japanese Listening Practice — Losing Something in Japan | JLPT N5",
+      "published": "2026-09-09",
+      "url": "https://www.youtube.com/watch?v=dwLXiVIgeIE",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/dwLXiVIgeIE",
+      "thumbnail": "https://i.ytimg.com/vi/dwLXiVIgeIE/hqdefault.jpg",
+      "series": "Situational listening practice",
+      "episode": null,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "dM-63UZyDv0",
+      "title": "Japanese Listening Practice — Asking Someone to Repeat | JLPT N5",
+      "published": "2026-09-07",
+      "url": "https://www.youtube.com/watch?v=dM-63UZyDv0",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/dM-63UZyDv0",
+      "thumbnail": "https://i.ytimg.com/vi/dM-63UZyDv0/hqdefault.jpg",
+      "series": "Situational listening practice",
+      "episode": null,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "wDcMjw_BX_g",
+      "title": "EP 25: A Japanese Rainy Day With Nowhere to Be | JLPT N5 Listening (Japanese for Beginners)",
+      "published": "2026-09-04",
+      "url": "https://www.youtube.com/watch?v=wDcMjw_BX_g",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/wDcMjw_BX_g",
+      "thumbnail": "https://i.ytimg.com/vi/wDcMjw_BX_g/hqdefault.jpg",
+      "series": "Listening episodes",
+      "episode": 25,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "LLbRUBwr74k",
+      "title": "Japanese Listening Practice — Shopping in Japan | JLPT N5",
+      "published": "2026-09-03",
+      "url": "https://www.youtube.com/watch?v=LLbRUBwr74k",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/LLbRUBwr74k",
+      "thumbnail": "https://i.ytimg.com/vi/LLbRUBwr74k/hqdefault.jpg",
+      "series": "Situational listening practice",
+      "episode": null,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [
+        "shopping"
+      ],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    },
+    {
+      "videoId": "9NNHlCgHDag",
+      "title": "Japanese Listening Practice — Trains & Directions | JLPT N5",
+      "published": "2026-09-02",
+      "url": "https://www.youtube.com/watch?v=9NNHlCgHDag",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/9NNHlCgHDag",
+      "thumbnail": "https://i.ytimg.com/vi/9NNHlCgHDag/hqdefault.jpg",
+      "series": "Situational listening practice",
+      "episode": null,
+      "difficulty": "N5",
+      "difficultyEvidence": "Stated in the video title",
+      "topics": [
+        "directions"
+      ],
+      "transcript": null,
+      "transcriptNote": "No legitimate transcript is bundled; none is invented.",
+      "embeddable": true
+    }
+  ]
+}
