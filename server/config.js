@@ -11,14 +11,14 @@ const llmKey = (env.LLM_API_KEY || '').trim();
 const provider = (env.LLM_PROVIDER || '').trim().toLowerCase();
 
 export const config = {
-  port: Number(env.PORT) || 3001,
+  port: Number(env.PORT) || 3002,
   rootDir: ROOT,
   publicDir: path.join(ROOT, 'public'),
   resourcesDir: path.resolve(ROOT, env.RESOURCES_DIR || 'resources'),
   autoBootstrap: env.AUTO_BOOTSTRAP !== '0',
   falkor: {
     host: env.FALKORDB_HOST || 'localhost',
-    port: Number(env.FALKORDB_PORT) || 6379,
+    port: Number(env.FALKORDB_PORT) || 6380,
     password: env.FALKORDB_PASSWORD || undefined,
     graph: env.FALKORDB_GRAPH || 'nihongo',
     queryTimeoutMs: Number(env.FALKORDB_QUERY_TIMEOUT_MS) || 8000,

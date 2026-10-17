@@ -20,7 +20,7 @@ from aiohttp import web
 RES = Path(os.environ.get("RESOURCES_DIR", Path(__file__).resolve().parent.parent / "resources")) / "original"
 CFG = {
     "host": os.environ.get("FALKORDB_HOST", "localhost"),
-    "port": int(os.environ.get("FALKORDB_PORT", "6379")),
+    "port": int(os.environ.get("FALKORDB_PORT", "6380")),
     "password": os.environ.get("FALKORDB_PASSWORD") or None,
     "graph": os.environ.get("GRAPHRAG_GRAPH", "nihongo_rag"),
     "api_key": os.environ.get("LLM_API_KEY", ""),
