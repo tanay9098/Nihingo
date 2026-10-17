@@ -18,11 +18,13 @@ export async function render(main, { showError }) {
     first ? h('details', { class: 'why' }, h('summary', {}, 'Quick refresher on the focus'),
       d.plan.lesson.concepts.map((c) => h('div', { class: 'stack' },
         h('p', {}, h('strong', { class: 'jp' }, c.name), c.pattern ? ` — ${c.pattern}` : ''),
-        c.explanation ? h('p', {}, c.explanation) : c.meaning ? h('p', {}, `${c.reading ? `${c.reading} · ` : ''}${c.meaning}`) : null,
+        c.explanation ? h('p', {}, c.explanation) : c.meaning ? h('p', {}, `${c.reading ? `${c.reading} · ` : ''}${c.meaning}`) : c.romaji ? h('p', {}, `${c.script ? `${c.script} · ` : ''}“${c.romaji}”`) : null,
         c.example ? h('p', { class: 'jp' }, c.example, h('span', { class: 'muted' }, ` ${c.exampleMeaning || ''}`)) : null))) : null,
     h('div', { class: 'row' },
       h('a', { class: 'btn primary', href: '#/practice?start=1' }, 'Start today’s session'),
       h('a', { class: 'btn', href: '#/memory' }, 'See agent handoffs')));
+
+  const pathCard = learningPath(d.pathway, rec.evidence?.rule === 'first-session');
 
   const listen = d.listening;
   const listenCard = listen ? h('section', { class: 'card stack', 'aria-labelledby': 'listen-h' },
@@ -65,7 +67,7 @@ export async function render(main, { showError }) {
     h('div', { id: 'mini-graph' }, h('p', { class: 'loading' }, 'Loading graph…')));
 
   clear(main).append(h('div', { class: 'stack' },
-    hero, h('div', { class: 'grid main-side' }, h('div', { class: 'stack' }, sessions, mistakes, gramRev), h('div', { class: 'stack' }, progress, listenCard, due)), mem));
+    hero, pathCard, h('div', { class: 'grid main-side' }, h('div', { class: 'stack' }, sessions, mistakes, gramRev), h('div', { class: 'stack' }, progress, listenCard, due)), mem));
 
   // The graph is optional: failure here must not break the dashboard.
   const box = main.querySelector('#mini-graph');
@@ -76,4 +78,31 @@ export async function render(main, { showError }) {
   } catch (err) {
     clear(box).append(h('p', { class: 'muted' }, `The graph view is unavailable (${err.message}). The rest of the dashboard still works.`));
   }
+}
+
+const STEP_STATUS = { completed: ['Completed', 'ok'], current: ['You are here', 'warn'], upcoming: ['Upcoming', ''] };
+
+/** The beginner learning path: ordered steps, where the learner is, what comes before/after, and how to revisit. */
+function learningPath(path, isNew) {
+  if (!path?.steps.length) return null;
+  const libraryHref = (s) => `#/library?tab=${s.libraryTab}${s.libraryTopic ? `&topic=${encodeURIComponent(s.libraryTopic)}` : ''}`;
+  return h('section', { class: 'card stack', 'aria-labelledby': 'path-h' },
+    h('div', { class: 'row' }, h('h2', { id: 'path-h' }, 'Your learning path'),
+      h('span', { class: 'small muted' }, `${path.completed}/${path.totalSteps} steps completed`)),
+    isNew ? h('div', { class: 'card flat stack' }, h('strong', {}, 'New to Japanese? Start here.'),
+      h('p', { class: 'small' }, 'Work through the steps below in order, starting with step 1. Press “Start today’s session” for about five questions; your progress is saved, so next time you continue where you left off. Anything you have studied can be looked up again in the Library.')) : null,
+    h('p', { class: 'small muted' }, 'A step is completed once you have practised every item in it. When something is due for review or keeps being missed, sessions revise it before introducing new items.'),
+    h('ol', { class: 'path' }, path.steps.map((s) => {
+      const [label, cls] = STEP_STATUS[s.status];
+      const cur = s.status === 'current';
+      return h('li', { class: `path-step ${s.status}`, 'aria-current': cur ? 'step' : null },
+        h('div', { class: 'row' }, h('strong', {}, `${s.step}. ${s.title}`), h('span', { class: 'small muted' }, s.module), h('span', { class: `badge ${cls}` }, label)),
+        cur ? h('p', { class: 'small' }, s.purpose) : null,
+        h('p', { class: 'small muted' }, s.requires.length ? `Builds on: ${s.requires.map((r) => r.title).join(', ')}` : 'No prerequisites: the starting point.',
+          s.preview.length ? [' · Includes ', h('span', { class: 'jp' }, `${s.preview.join('、')}…`)] : null),
+        h('div', { class: 'bar', role: 'progressbar', 'aria-label': `${s.title} practised`, 'aria-valuenow': s.studied, 'aria-valuemin': 0, 'aria-valuemax': s.total, vars: { '--v': (100 * s.studied) / s.total } }, h('span')),
+        h('div', { class: 'row' }, h('span', { class: 'small muted' }, `${s.studied}/${s.total} practised · ${s.mastered} mastered`),
+          cur ? h('a', { class: 'btn small primary', href: '#/practice?start=1' }, 'Continue this step') : null,
+          s.studied ? h('a', { class: 'btn small', href: libraryHref(s) }, s.status === 'completed' ? 'Revisit' : 'Review in Library') : null));
+    })));
 }

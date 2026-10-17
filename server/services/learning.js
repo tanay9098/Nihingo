@@ -136,17 +136,18 @@ export class LearningService {
     this.learnerOr404(learnerId);
     const learner = await this.memory.getLearner(learnerId);
     const brief = await this.tutor.brief({ learnerId });
-    const [sessions, recent, due, studyList, lessons, recurring] = await Promise.all([
+    const [sessions, recent, due, studyList, lessons, recurring, pathway] = await Promise.all([
       this.memory.recentSessions(learnerId, 6),
       this.memory.recentMistakes(learnerId, 6),
       this.memory.dueItems(learnerId, this.clock(), 8),
       this.memory.studyList(learnerId, 80),
       this.catalog.listLessons(learnerId),
       this.memory.recurringMistakes(learnerId, 1),
+      this.planner.pathway(learnerId),
     ]);
     const lessonIds = new Set([brief.listening?.focusId].filter(Boolean));
     return {
-      mode: appMode(), learner,
+      mode: appMode(), learner, pathway,
       plan: { recommendation: brief.recommendation, explanation: brief.explanation, lesson: brief.lesson },
       listening: brief.listening ? { ...brief.listening, lesson: lessons.find((l) => lessonIds.has(l.id)) ?? null } : null,
       recentSessions: sessions.filter((x) => x.attempts > 0), recentMistakes: recent, progress: brief.progress, due,

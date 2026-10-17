@@ -69,7 +69,7 @@ export class TutorAgent {
       if (!c) continue;
       concepts.push({
         id: c.id, kind: c.kind, name: c.name || c.word || c.char, pattern: c.pattern, explanation: c.explanation, meaning: c.meaning,
-        reading: c.reading, example: c.example, exampleReading: c.exampleReading, exampleMeaning: c.exampleMeaning,
+        reading: c.reading, romaji: c.romaji, script: c.script, example: c.example, exampleReading: c.exampleReading, exampleMeaning: c.exampleMeaning,
         related: c.related.filter((r) => r.rel !== 'APPEARS_IN').slice(0, 5),
       });
       for (const r of c.resources) sources.set(r.id, { title: r.title, path: r.path, source: r.source, license: r.license });

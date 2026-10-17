@@ -5,6 +5,8 @@ import { createHash } from 'node:crypto';
 import { updateStudyState, inferBestFormat, EMPTY_STATE } from './mastery.js';
 import { formatOf } from './grade.js';
 import { AgentLog } from './events.js';
+import { PATHWAY, buildPathway, stageRef } from './pathway.js';
+import { LOCAL_ORDER } from '../ingestion/ingest.js';
 
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const h = (s) => createHash('sha1').update(s).digest('hex').slice(0, 10);
@@ -82,14 +84,17 @@ export function decide(ctx) {
       reason: `${plural(due.length, 'item')} ${due.length === 1 ? 'is' : 'are'} due for review (for example “${due[0].name}”). Reviewing at the right time keeps them in memory.`,
     };
   }
-  const g = nextGrammar[0];
+  // New material follows the learning path (procedural memory): the next unstudied items of the current step.
+  const stage = ctx.pathway?.current ?? null;
+  const g = ctx.pathNext ? null : nextGrammar[0];
   const v = nextVocab.slice(0, 2);
-  const focus = [...(g ? [{ id: g.id, name: g.name }] : []), ...v.map((x) => ({ id: x.id, name: x.name }))];
+  const focus = ctx.pathNext ?? [...(g ? [{ id: g.id, name: g.name }] : []), ...v.map((x) => ({ id: x.id, name: x.name }))];
+  const at = stage ? `Step ${stage.step} of ${stage.of} on your learning path — ${stage.title}` : '';
   return {
     activity: 'new_material', rule: noHistory ? 'first-session' : 'next-in-sequence', focus, mistakeIds: [],
     reason: noHistory
-      ? 'There is no study history for this profile yet, so we begin at the start of the curriculum.'
-      : `You have no recurring mistakes and nothing is overdue, so the next step is new material${g ? `: “${g.name}” (its prerequisites are already practised)` : ''}.`,
+      ? `There is no study history for this profile yet, so we begin at the start of the curriculum${at ? `: ${at}` : ''}.`
+      : `You have no recurring mistakes and nothing is overdue, so the next step is new material${at ? ` from ${at}` : ''}${g ? `: “${g.name}” (its prerequisites are already practised)` : ctx.pathNext ? `: ${focus.map((f) => `“${f.name}”`).join(', ')}` : ''}.`,
   };
 }
 
@@ -100,6 +105,11 @@ export class PlannerAgent {
 
   async preferences(learnerId) {
     return effectivePrefs(await this.memory.preferences(learnerId));
+  }
+
+  /** The learner's position on the beginner learning path (completed / current / upcoming steps). */
+  async pathway(learnerId) {
+    return buildPathway(await this.memory.pathwayProgress(learnerId, PATHWAY));
   }
 
   /** Read everything needed to decide, from the graph. */
@@ -126,7 +136,16 @@ export class PlannerAgent {
       lowListening.push({ ...l, weakConcepts: weak });
     }
     const studied = Object.values(prog).reduce((n, p) => n + (p?.studied ?? 0), 0);
-    return { recurring, due, nextGrammar, nextVocab, prereqs, contrasts, lowListening, progress: prog, noHistory: studied === 0 };
+    // Next items on the learning path. The last step (the N5 extension) keeps the grammar + vocabulary mix.
+    const pathway = await this.pathway(learnerId);
+    const cur = pathway.current;
+    let pathNext = null;
+    if (cur && cur.id !== 'n5') {
+      const def = PATHWAY.find((s) => s.id === cur.id);
+      const rows = cur.id === 'grammar' ? nextGrammar.filter((x) => x.ord < LOCAL_ORDER) : await this.memory.nextInStep(learnerId, def, 3);
+      if (rows.length) pathNext = rows.map((x) => ({ id: x.id, name: x.name }));
+    }
+    return { recurring, due, nextGrammar, nextVocab, prereqs, contrasts, lowListening, progress: prog, noHistory: studied === 0, pathway, pathNext };
   }
 
   /** Compute + persist the primary (study) and secondary (listening) recommendations for the current memory state. */
@@ -144,7 +163,7 @@ export class PlannerAgent {
       demoMistakes: demoShare, liveMistakes: (d.primary?.mistakes ?? 0) - demoShare,
       mastery: d.primary?.mastery ?? null, status: d.primary?.status ?? null,
       prerequisite: d.prerequisite ?? null, contrast: d.partner ? { id: d.partner.id, name: d.partner.name, mistakes: d.partner.mistakes } : null,
-      dueCount: ctx.due.length,
+      dueCount: ctx.due.length, stage: stageRef(ctx.pathway.current),
     };
     const primary = {
       id: `rec:${learnerId}:study:${h(d.activity + JSON.stringify(d.focus) + version)}`,
