@@ -10,6 +10,7 @@ built for the FalkorDB hackathon, **Track 2: Agent Memory and Coordination**.
 * Listening practice linked to verified [Lazy Benkyou](https://lazybenkyou.com/) videos (embedded via YouTube, never re-hosted).
 * **Demo mode** (default) needs no LLM key. **AI mode** is optional and clearly labelled.
 
+> See **[docs/PRD.md](docs/PRD.md)** for the product requirements (goals, target users, features and requirements).
 > Start with **[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)** for the 6-minute walkthrough, **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the graph schema and agent workflow,
 > and **[docs/RESOURCE_INVENTORY.md](docs/RESOURCE_INVENTORY.md)** for what content exists, where it comes from and its licensing.
 
