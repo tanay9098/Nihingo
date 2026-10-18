@@ -1,5 +1,5 @@
 // Graph schema: labels, indexes and uniqueness constraints. Safe to run repeatedly.
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 // Every label that is looked up by `id` gets a range index and a UNIQUE constraint.
 export const ID_LABELS = [
@@ -17,7 +17,8 @@ export async function ensureSchema(client) {
     try { await g.createNodeRangeIndex(label, 'id'); created.push(`index:${label}.id`); } catch (e) { if (!isExists(e)) throw e; }
   }
   // Secondary indexes used by the heaviest queries.
-  const extra = [['Attempt', 'learnerId'], ['Mistake', 'learnerId'], ['AgentEvent', 'learnerId'], ['LearningSession', 'learnerId'], ['Account', 'email']];
+  const extra = [['Attempt', 'learnerId'], ['Mistake', 'learnerId'], ['AgentEvent', 'learnerId'], ['LearningSession', 'learnerId'],
+    ['Account', 'email'], ['Account', 'googleSub'], ['Account', 'kind'], ['AuthSession', 'accountId']];
   for (const [label, prop] of extra) {
     try { await g.createNodeRangeIndex(label, prop); created.push(`index:${label}.${prop}`); } catch (e) { if (!isExists(e)) throw e; }
   }
@@ -26,6 +27,8 @@ export async function ensureSchema(client) {
   }
   // One account per email address, enforced by the database (not just by a read-then-write check).
   try { await g.constraintCreate('UNIQUE', 'NODE', 'Account', 'email'); created.push('unique:Account.email'); } catch (e) { if (!isExists(e)) throw e; }
+  // …and one account per Google identity. Accounts without the property (guests, password accounts) are not constrained.
+  try { await g.constraintCreate('UNIQUE', 'NODE', 'Account', 'googleSub'); created.push('unique:Account.googleSub'); } catch (e) { if (!isExists(e)) throw e; }
   await client.query(
     'MERGE (m:Meta {id: $id}) SET m.schemaVersion = $v, m.updatedAt = $now',
     { id: 'schema', v: SCHEMA_VERSION, now: Date.now() },

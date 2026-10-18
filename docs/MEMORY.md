@@ -17,12 +17,15 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 * **Agents**: `server/agents/tutor.js` (reads + explains), `examiner.js` (selects + grades, no writes), `planner.js` (all memory writes,
   `decide()` policy, preferences). Pure helpers: `grade.js`, `mastery.js`, `pathway.js`.
 * **Data access**: `server/graph/catalog.js` (content), `server/graph/memory.js` (learner memory, accounts), `schema.js` (indexes, `SCHEMA_VERSION` 2).
-* **Accounts**: email + password (`server/services/auth.js`), HttpOnly cookie `nh_session`; each account owns one `Learner`
-  (`learner:<uuid>`); guests use `learner:demo` (seeded, `isDemo: true`).
+* **Accounts**: Sign in with Google (`server/services/google.js`, OAuth code flow + PKCE via `fetch`) or a guest account (no email, only its cookie;
+  upgraded in place on Google sign-in), both in `server/services/auth.js`; HttpOnly cookie `nh_session`; each account owns one `Learner`
+  (`learner:<uuid>`). Email + password is legacy (`PASSWORD_AUTH=1`). Visitors without any account see `learner:demo` (seeded, `isDemo: true`).
 * **Learning path**: Hiragana → Katakana → First words → Sentence patterns → First kanji → JLPT N5 extension (`pathway.js`), computed from `STUDIES` edges.
 * **Content**: `resources/original/` (MIT, curated), `resources/local/` (third-party JLPT N5 PDFs/CSV), `resources/external/lazybenkyou_videos.json` (15 videos).
-* **Tests**: 49 (22 unit + 27 integration) in `tests/`, all passing on 2026-10-18 against a real FalkorDB module. Run with `FALKORDB_PORT=<port> npm test`.
-* **Not implemented / known gaps**: email verification, password reset, account deletion, MFA; rate limit and per-learner lock are in-process
+* **Tests**: 61 in `tests/` (unit, ingestion, api, workflow, auth), all passing on 2026-10-18 against a real FalkorDB module. Run with `FALKORDB_PORT=<port> npm test`.
+* **Boot**: `server/index.js` retries the database forever with backoff (`bootLoop`), so a late/misconfigured-then-fixed DB is picked up without a restart.
+* **Deploy**: Render web service (Docker); FalkorDB must be external (`FALKORDB_HOST` ≠ localhost). README → *Deploying on Render* lists the env vars.
+* **Not implemented / known gaps**: deleting a Google account; rate limit and per-learner lock are in-process
   (single instance); AI mode and GraphRAG sidecar not verified end-to-end with a real LLM; no stroke-order animation; no greetings/conversation step.
 
 ## Where to look for…
@@ -51,6 +54,21 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 ## Change log
 
 Newest first. One entry per change: date · summary · files · how it was tested.
+
+* **2026-10-18** · Sign in with Google (no password) + guest accounts; boot no longer gives up on the database. **Fix**: on Render the app had
+  `FALKORDB_HOST=localhost`, so `boot()` failed after 60 s and every `/api` call answered 503 forever; `bootLoop()` now retries with 5–60 s backoff and logs a hint
+  when the host is localhost on a hosting platform. **Google**: `/api/auth/google/start|callback` (authorization-code + PKCE + state + nonce, `fetch` only, no new
+  dependency, no CSP change), accounts found by `googleSub`, else linked by verified email, else the caller's guest account is upgraded (same learner), else created.
+  **Guest**: `POST /api/auth/guest` makes an `Account {kind:'guest'}` + own learner reachable only through its cookie (`GUEST_TTL_DAYS`, default 180, renewed
+  while used); signing out deletes it; abandoned guests pruned on boot and daily. `GET /api/auth/options`; `/auth/me` gains `guest` (additive). Email + password
+  endpoints answer 410 `password_auth_disabled` unless `PASSWORD_AUTH=1` (user's request: no passwords). `TRUST_PROXY=1` for Render (rate limit by real IP, https
+  redirect URI). Schema v3: unique `Account.googleSub`, indexes `Account.kind`, `AuthSession.accountId` (additive). Frontend: sign-in page with *Continue with Google* /
+  *Continue as guest*, guest banner, *Save with Google*, guest sign-out confirmation. Files: `server/index.js`, `server/config.js`, `server/app.js`,
+  `server/services/auth.js`, `server/services/google.js` (new), `server/graph/memory.js`, `server/graph/schema.js`, `public/js/auth.js`, `public/js/app.js`,
+  `public/js/api.js`, `public/css/components.css`, `tests/auth.test.js` (new), `tests/unit.test.js`, `tests/api.test.js`, `.env.example`, `docker-compose.yml`,
+  `README.md`, `docs/ARCHITECTURE.md`, `docs/PRD.md`. Tested: `npm test` → 61/61 pass against FalkorDB (falkordblite module), Google's token endpoint faked;
+  boot retry checked by starting the app with no database, then starting FalkorDB (it became ready without a restart); guest flow checked in headless Chromium
+  at 393 px. Not tested against real Google (no client credentials in the sandbox).
 
 * **2026-10-18** · Optional TLS / ACL user for the FalkorDB connection (for hosted databases such as FalkorDB Cloud): `FALKORDB_TLS=1` sets `socket.tls`,
   `FALKORDB_USERNAME` sets the ACL user; both default to off/empty so the Compose/local setup is unchanged. Files: `server/config.js`, `server/graph/client.js`,

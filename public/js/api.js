@@ -38,6 +38,8 @@ async function request(method, path, body, { timeout = 15000 } = {}) {
 export const api = {
   health: () => request('GET', '/health'),
   me: () => request('GET', '/auth/me'),
+  authOptions: () => request('GET', '/auth/options'),
+  startGuest: () => request('POST', '/auth/guest', {}),
   signUp: (body) => request('POST', '/auth/signup', body),
   signIn: (body) => request('POST', '/auth/signin', body),
   signOut: () => request('POST', '/auth/signout', {}),

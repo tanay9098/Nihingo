@@ -51,25 +51,73 @@ export class MemoryStore {
   // Account and AuthSession point at their learner through `profileId`, not `learnerId`: resetting a learner deletes every
   // node whose learnerId matches, and that must never take the account or its sign-ins with it.
 
+  // `kind` is 'google' or 'guest'; accounts from before Google sign-in have none and are password accounts.
+  // A guest account has neither email nor googleSub: only its sign-in cookie, held by one browser, leads to it.
+
   /** Creates the account and its own new Learner in one query. Returns false if the email is already registered. */
-  async createAccount({ id, email, passwordHash, profileId, name, now }) {
+  async createAccount({ id, email = null, passwordHash = null, googleSub = null, kind = null, profileId, name, now }) {
     const r = await this.c.query(
       `OPTIONAL MATCH (x:Account {email: $email})
        WITH x WHERE x IS NULL
-       CREATE (a:Account {id: $id, email: $email, passwordHash: $passwordHash, profileId: $profileId, createdAt: $now})
+       CREATE (a:Account {id: $id, email: $email, passwordHash: $passwordHash, googleSub: $googleSub, kind: $kind, profileId: $profileId, createdAt: $now})
        CREATE (l:Learner {id: $profileId, name: $name, isDemo: false, createdAt: $now, memoryVersion: 0})
        RETURN a.id AS id`,
-      { id, email, passwordHash, profileId, name, now },
+      { id, email, passwordHash, googleSub, kind, profileId, name, now },
     );
     return r.length === 1;
   }
 
   async getAccountByEmail(email) {
     const r = await this.c.query(
-      'MATCH (a:Account {email: $email}) RETURN a.id AS id, a.email AS email, a.passwordHash AS passwordHash, a.profileId AS profileId',
+      `MATCH (a:Account {email: $email})
+       RETURN a.id AS id, a.email AS email, a.passwordHash AS passwordHash, a.googleSub AS googleSub, a.kind AS kind, a.profileId AS profileId`,
       { email },
     );
     return r[0] ?? null;
+  }
+
+  async getAccountByGoogleSub(googleSub) {
+    const r = await this.c.query(
+      'MATCH (a:Account {googleSub: $googleSub}) RETURN a.id AS id, a.email AS email, a.googleSub AS googleSub, a.kind AS kind, a.profileId AS profileId',
+      { googleSub },
+    );
+    return r[0] ?? null;
+  }
+
+  /** Attaches a Google identity to an account; a guest account becomes a Google account (its learner and progress stay). */
+  async linkGoogle(id, { googleSub, email, name }) {
+    const r = await this.c.query(
+      `MATCH (a:Account {id: $id})
+       WITH a, a.kind = 'guest' AS wasGuest
+       SET a.googleSub = $googleSub, a.email = $email, a.kind = 'google', a.linkedAt = $now
+       WITH a, wasGuest
+       OPTIONAL MATCH (l:Learner {id: a.profileId})
+       FOREACH (_ IN CASE WHEN wasGuest AND $name <> '' THEN [1] ELSE [] END | SET l.name = $name)
+       RETURN a.id AS id, a.email AS email, a.googleSub AS googleSub, a.kind AS kind, a.profileId AS profileId`,
+      { id, googleSub, email, name: name ?? '', now: Date.now() },
+    );
+    return r[0] ?? null;
+  }
+
+  /** Deletes an account, its sign-ins and its learner with everything recorded for it. */
+  async deleteAccount(id) {
+    const r = await this.c.query('MATCH (a:Account {id: $id}) RETURN a.profileId AS profileId', { id });
+    if (!r.length) return;
+    await this.c.query('MATCH (s:AuthSession {accountId: $id}) DELETE s', { id });
+    if (r[0].profileId) await this.deleteLearner(r[0].profileId);
+    await this.c.query('MATCH (a:Account {id: $id}) DELETE a', { id });
+  }
+
+  /** Removes guest accounts that no browser can reach any more (all their sign-ins expired). Returns how many. */
+  async pruneGuests() {
+    const r = await this.c.query(
+      `MATCH (a:Account {kind: 'guest'})
+       OPTIONAL MATCH (s:AuthSession) WHERE s.accountId = a.id
+       WITH a, count(s) AS n WHERE n = 0
+       RETURN a.id AS id`,
+    );
+    for (const { id } of r) await this.deleteAccount(id);
+    return r.length;
   }
 
   async createAuthSession({ id, accountId, profileId, createdAt, expiresAt }) {
@@ -82,10 +130,14 @@ export class MemoryStore {
   async getAuthSession(id) {
     const r = await this.c.query(
       `MATCH (s:AuthSession {id: $id}) OPTIONAL MATCH (a:Account {id: s.accountId})
-       RETURN s.id AS id, s.accountId AS accountId, s.profileId AS profileId, s.expiresAt AS expiresAt, a.email AS email`,
+       RETURN s.id AS id, s.accountId AS accountId, s.profileId AS profileId, s.expiresAt AS expiresAt, a.email AS email, a.kind AS kind`,
       { id },
     );
     return r[0] ?? null;
+  }
+
+  async extendAuthSession(id, expiresAt) {
+    await this.c.query('MATCH (s:AuthSession {id: $id}) SET s.expiresAt = $expiresAt', { id, expiresAt });
   }
 
   async deleteAuthSession(id) {

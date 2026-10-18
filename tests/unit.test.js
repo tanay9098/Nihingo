@@ -12,6 +12,8 @@ import { parsePdfLayout } from '../server/ingestion/pdf-layouts.js';
 import { parseFeed } from '../scripts/refresh-listening-catalog.js';
 import { appMode } from '../server/config.js';
 import { hashPassword, verifyPassword, normalizeEmail } from '../server/services/auth.js';
+import { GoogleAuth } from '../server/services/google.js';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 test('grading: multiple choice is exact', () => {
@@ -268,4 +270,35 @@ test('FalkorDB connection options: TLS is off by default and on only with FALKOR
   const on = await load({ FALKORDB_TLS: '1', FALKORDB_USERNAME: 'app' });
   assert.equal(on.tls, true);
   assert.equal(on.username, 'app');
+});
+
+test('Google sign-in: PKCE start URL; the ID token must match issuer, client, nonce and expiry', async () => {
+  const now = 1_800_000_000_000;
+  let sent = null, claims = {};
+  const fetch = async (url, opts) => {
+    sent = { url, body: new URLSearchParams(opts.body) };
+    const jwt = `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.sig`;
+    return { ok: true, json: async () => ({ id_token: jwt }) };
+  };
+  const g = new GoogleAuth({ clientId: 'cid', clientSecret: 'sec', fetch, clock: () => now });
+  assert.equal(g.enabled, true);
+  assert.equal(new GoogleAuth({ clientId: 'cid', clientSecret: '' }).enabled, false);
+  const { url, flow } = g.start('https://app.example/api/auth/google/callback');
+  const q = new URL(url).searchParams;
+  assert.equal(new URL(url).origin, 'https://accounts.google.com');
+  assert.equal(q.get('client_id'), 'cid'); assert.equal(q.get('state'), flow.state); assert.equal(q.get('nonce'), flow.nonce);
+  assert.equal(q.get('code_challenge'), createHash('sha256').update(flow.verifier).digest('base64url'));
+  assert.ok(!url.includes('sec'), 'the client secret never goes to the browser');
+
+  const good = { iss: 'https://accounts.google.com', aud: 'cid', exp: now / 1000 + 300, nonce: flow.nonce, sub: '123', email: 'a@example.com', email_verified: true, name: 'Aya' };
+  claims = good;
+  assert.deepEqual(await g.finish({ code: 'c', redirectUri: 'r', flow }), { sub: '123', email: 'a@example.com', name: 'Aya' });
+  assert.equal(sent.url, 'https://oauth2.googleapis.com/token');
+  assert.equal(sent.body.get('code_verifier'), flow.verifier); assert.equal(sent.body.get('client_secret'), 'sec');
+  for (const bad of [{ iss: 'https://evil.example' }, { aud: 'other' }, { nonce: 'x' }, { exp: now / 1000 - 1 }, { sub: '' }]) {
+    claims = { ...good, ...bad };
+    await assert.rejects(g.finish({ code: 'c', redirectUri: 'r', flow }), (e) => e.code === 'google_failed', JSON.stringify(bad));
+  }
+  claims = { ...good, email_verified: false };
+  await assert.rejects(g.finish({ code: 'c', redirectUri: 'r', flow }), (e) => e.code === 'google_unverified');
 });

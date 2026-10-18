@@ -6,7 +6,7 @@ built for the FalkorDB hackathon, **Track 2: Agent Memory and Coordination**.
 
 * Vanilla HTML/CSS/JS frontend (no framework, no build step, ~70 kB of unminified JS, loaded per page) · Node + Express backend · FalkorDB via the official `falkordb` client.
 * Episodic, semantic and procedural memory in the graph; recommendations carry traceable evidence (“why this lesson?”).
-* **Learner accounts**: sign up / sign in with email + password; every account gets its own learner, so its learning path and memory are its own. Guests can try the seeded demo learner without an account.
+* **Learner accounts**: sign in with Google (no password), or continue as a guest whose progress is kept in this browser; every account gets its own learner, so its learning path and memory are its own. A guest who later signs in with Google keeps their progress. Without either, visitors can browse the seeded demo learner.
 * Listening practice linked to verified [Lazy Benkyou](https://lazybenkyou.com/) videos (embedded via YouTube, never re-hosted).
 * **Demo mode** (default) needs no LLM key. **AI mode** is optional and clearly labelled.
 
@@ -24,7 +24,7 @@ cp .env.example .env          # optional: set FALKORDB_PASSWORD, LLM_*; defaults
 docker compose up --build
 ```
 Open <http://localhost:3002>. FalkorDB Browser is at <http://localhost:3000>. On first boot the app creates the schema, ingests `resources/`, and seeds the demo learner.
-You start as a guest on the demo learner; use **Create account** in the top bar to get your own learning path. Serving it over HTTPS? Set `COOKIE_SECURE=1` in `.env`.
+You start on the demo learner; use **Sign in** in the top bar for your own learning path (*Continue with Google* needs `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, see [Sign in with Google](#sign-in-with-google); *Continue as guest* always works). Serving it over HTTPS? Set `COOKIE_SECURE=1` in `.env`.
 Data persists in the `falkordb_data` volume (AOF enabled). Add `--profile graphrag` to also start the optional GraphRAG-SDK sidecar.
 
 ### Option B — Node locally + FalkorDB in Docker
@@ -76,8 +76,46 @@ npm install && npm start
 | `AUTO_BOOTSTRAP` | 1 | `0` skips ingestion/seeding on boot |
 | `SESSION_TTL_DAYS` | 30 | How long a sign-in lasts |
 | `COOKIE_SECURE` | 0 | `1` marks the session cookie `Secure` (set it whenever the app is served over HTTPS) |
+| `TRUST_PROXY` | 0 | `1` behind a reverse proxy (Render, …): client IP for rate limits and `https` are read from `X-Forwarded-*` |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | empty | Sign in with Google; the button appears only when both are set. The secret stays on the server |
+| `GOOGLE_REDIRECT_URI` | derived | Must equal an *Authorized redirect URI* of the OAuth client; empty = `<this origin>/api/auth/google/callback` |
+| `GUEST_TTL_DAYS` | 180 | A guest account is kept alive while used and deleted after this many days unused |
+| `PASSWORD_AUTH` | 0 | `1` re-enables the legacy email + password endpoints (`/api/auth/signup`, `/api/auth/signin`); otherwise they answer 410 |
 | `LLM_PROVIDER` (`anthropic`\|`openai`), `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL` | empty | **AI mode** only when provider + key + model are all set; otherwise **Demo mode** (shown in the header badge and `/api/health`) |
 | `GRAPHRAG_URL` | empty | Optional GraphRAG-SDK sidecar (see `graphrag/README.md`) |
+
+### Sign in with Google
+1. Google Cloud Console → **APIs & Services → OAuth consent screen**: set it up (External; app name, support email; scopes `openid`, `email`, `profile`).
+   While it is in *Testing*, only the listed test users can sign in; **Publish app** to open it to everyone (these scopes need no Google review).
+2. **APIs & Services → Credentials → Create credentials → OAuth client ID**, type **Web application**.
+   * *Authorized JavaScript origins*: not needed (the browser never talks to Google's API directly).
+   * *Authorized redirect URIs*: `https://<your-domain>/api/auth/google/callback` (e.g. `https://nihingo.onrender.com/api/auth/google/callback`), plus `http://localhost:3002/api/auth/google/callback` for local use.
+3. Copy the **Client ID** and **Client secret** (shown after creating the client, and later on the client's page) into `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+   Set `GOOGLE_REDIRECT_URI` to the same URL as in step 2 when the app runs behind a proxy without `TRUST_PROXY=1`.
+
+The flow is the OAuth authorization-code flow with PKCE, done by the server with `fetch` (no SDK, no Google script in the page): `/api/auth/google/start` → Google →
+`/api/auth/google/callback`, which checks `state`, exchanges the code with the client secret, checks the ID token's issuer, audience, expiry, nonce and verified email, then sets the session cookie.
+An existing email + password account with the same verified email is linked to the Google account on its first Google sign-in.
+
+### Deploying on Render
+The app is one Render **Web Service** (Docker, from this repo's `Dockerfile`); FalkorDB is **not** part of it and must run elsewhere — FalkorDB Cloud, or a Render
+*Private Service* from the `falkordb/falkordb` image with a persistent disk on `/data`. Until the app can reach it every API call answers 503 (“The graph database is starting up”);
+the app keeps retrying in the background, so it comes up by itself as soon as the database is reachable. Render → your service → **Environment**:
+
+| Variable | Value on Render | Secret? |
+| --- | --- | --- |
+| `FALKORDB_HOST`, `FALKORDB_PORT` | Your database's host and port (not `localhost`) | no |
+| `FALKORDB_PASSWORD` | Database password | **yes** |
+| `FALKORDB_USERNAME`, `FALKORDB_TLS` | FalkorDB Cloud: its user name and `1` | username no, but keep it private |
+| `GOOGLE_CLIENT_ID` | From Google Cloud Console | no (it is visible in the Google redirect anyway) |
+| `GOOGLE_CLIENT_SECRET` | From Google Cloud Console | **yes** |
+| `GOOGLE_REDIRECT_URI` | `https://<service>.onrender.com/api/auth/google/callback` | no |
+| `COOKIE_SECURE`, `TRUST_PROXY` | `1`, `1` | no |
+| `LLM_API_KEY` (if AI mode) | Provider key | **yes** |
+| `PORT` | Leave unset (Render sets it) | — |
+
+None of these is ever sent to the browser: the frontend only talks to `/api`, and the only Google value the browser sees is the client id inside the redirect to Google.
+On Render all of them are server-side environment variables, visible only in your dashboard; “secret” marks the ones that must never be committed, logged or shared (never commit `.env`).
 
 In AI mode the LLM only rewords explanations / answers questions from graph evidence; its output is validated (JSON shape, length, no figures that aren't in the evidence)
 and any failure falls back to the deterministic text. Recommendations themselves are always rule-based on the graph.
@@ -92,9 +130,11 @@ and any failure falls back to the deterministic text. Recommendations themselves
 * **Listening** – 15 verified Lazy Benkyou videos, embed + direct link, saved lessons, notes, comprehension ratings. No transcripts exist, so transcript practice is honestly unavailable.
 * **Memory** – real agent timeline, the three memory types, preference editor, bounded graph explorer, source-grounded “Ask the Tutor”, reset.
 
-* **Accounts** – *Sign in* / *Create account* (`#/signin`, `#/signup`). Every account gets its own learner, so its learning path, memory and history are its own. Without an account you browse the demo learner as a guest; signed-in users can switch to the demo learner from the top bar.
+* **Accounts** – *Sign in* (`#/signin`): *Continue with Google* or *Continue as guest*. Every account (guest ones too) gets its own learner, so its learning path, memory and history are its own.
+  A guest account has no email or password; only this browser's cookie leads to it, so clearing site data or signing out of it deletes its progress. *Save with Google* moves a guest's path into a Google account
+  (if that Google account already existed, you sign in to it and the guest progress stays behind). Without any account you browse the demo learner; anyone can switch to the demo learner from the top bar.
 
-REST API (all JSON `{ok, data | error}`; learner from the session cookie, or the demo learner for guests): `GET /api/auth/me` · `POST /api/auth/signup|signin|signout` · `GET /api/health` · `/api/dashboard` · `/api/library[?q&kind&topic]` · `/api/library/item?id=` · `/api/library/exercises|topics|stroke-references` · `/api/resources[/:id]` ·
+REST API (all JSON `{ok, data | error}`; learner from the session cookie, or the demo learner for guests): `GET /api/auth/me|options` · `GET /api/auth/google/start|callback` · `POST /api/auth/guest|signout` · `POST /api/auth/signup|signin` (legacy, `PASSWORD_AUTH=1`) · `GET /api/health` · `/api/dashboard` · `/api/library[?q&kind&topic]` · `/api/library/item?id=` · `/api/library/exercises|topics|stroke-references` · `/api/resources[/:id]` ·
 `/api/listening` · `POST /api/listening/:id/log|save` · `/api/learner/memory` · `/api/learner/sessions` · `POST /api/sessions` · `GET /api/sessions/:id` · `GET /api/sessions/:sid/reveal/:exerciseId` · `POST /api/attempts` · `POST /api/sessions/:id/complete` ·
 `/api/recommendations` · `/api/agents/timeline` · `/api/graph/neighborhood` · `POST /api/feedback` · `POST /api/learner/reset` · `POST /api/tutor/ask`. Full table with handlers: `docs/ARCHITECTURE.md` → *API flow*.
 
@@ -116,10 +156,11 @@ Run in the development sandbox on **Oct 17 2026**; the accounts feature was veri
   actual **YouTube playback** (the sandbox can't stream video; embeds and fallbacks are in place). There is no stroke *animation*: the stroke-order PDFs in `resources/local/` are linked by page, not parsed into strokes.
 
 ## Known limitations
-* Accounts are email + password only: no email verification, password reset or account deletion yet. Set `COOKIE_SECURE=1` when serving over HTTPS.
+* Sign-in is with Google or as a guest; there is no account deletion yet (a guest is deleted on sign-out). A guest's progress is stored in the graph like any learner's, but its only key is
+  this browser's cookie. Set `COOKIE_SECURE=1` when serving over HTTPS.
   The old shared `learner:me` profile (“My profile”) no longer exists and is removed on boot, with its history.
 * The sign-in rate limit (20 attempts per 10 min per client IP) is in-process: it resets on restart and isn't shared between instances. Behind a reverse proxy,
-  configure Express `trust proxy`, otherwise every user is seen with the proxy's IP and they all share one limit.
+  set `TRUST_PROXY=1`, otherwise every user is seen with the proxy's IP and they all share one limit.
 * The original content is small by design (56 words, 26 kanji, 16 grammar points, 92 kana). With the JLPT N5 files in `resources/local/` the library holds 856 words, 103 kanji and 152 grammar points;
   that material comes from third-party lists (see `docs/RESOURCE_INVENTORY.md`) and carries their quirks. Stroke order is linked as **pages** of the reference PDFs (79 kanji, 92 kana), never animated or verified.
 * The per-learner write lock is in-process (single app instance).
@@ -131,7 +172,7 @@ Run in the development sandbox on **Oct 17 2026**; the accounts feature was veri
 ## Troubleshooting
 | Symptom | Fix |
 | --- | --- |
-| “The graph database is starting up” / health returns 503 | FalkorDB isn't reachable yet. `docker compose ps` / `docker ps -a`; check `FALKORDB_HOST/PORT/PASSWORD`. The app retries for ~60 s, then gives up (`Bootstrap failed` in its log): *Try again* can't recover from that, so start the database and restart the app (`npm start`, or `docker compose restart app`). |
+| “The graph database is starting up” / health returns 503 | FalkorDB isn't reachable. `docker compose ps` / `docker ps -a`; check `FALKORDB_HOST/PORT/PASSWORD` (and `FALKORDB_TLS`/`FALKORDB_USERNAME` for FalkorDB Cloud). `/api/health` and the app log (`Bootstrap failed (attempt n): …`) show the real error. The app keeps retrying (every 5–60 s), so once the database is reachable *Try again* works without a restart. On Render, `FALKORDB_HOST` must not be `localhost` (see *Deploying on Render*). |
 | `NOAUTH` / `WRONGPASS` errors | Set the same `FALKORDB_PASSWORD` for the app and the database (Compose passes it as `--requirepass`). |
 | Port already in use (`port is already allocated`, `EADDRINUSE`) | Find what holds the port (`docker ps -a`, `sudo ss -ltnp \| grep -E '6380\|3002'`) and stop it, or change `PORT` / `FALKORDB_PORT` in `.env` (with Compose the same two variables change the host ports). |
 | `SocketClosedUnexpectedlyError` / `Unhandled 'error' event` at startup | Something that isn't this project's FalkorDB answers on `FALKORDB_PORT`, or the DB container never started (`docker ps -a`; a container stuck in `Created` means its port was taken). Remove it with `docker rm nihongo-falkordb` and start it again (Option B). |
@@ -139,10 +180,13 @@ Run in the development sandbox on **Oct 17 2026**; the accounts feature was veri
 | PDFs show as “linked” only | Install `poppler-utils` (`pdftotext`, `pdfinfo`). Image-only PDFs can't be text-extracted. |
 | YouTube video won't play | Offline/blocked/embedding disabled: use the “Open it on YouTube” link. The rest of the app is unaffected. |
 | `npm test` skips integration tests | They need a reachable FalkorDB (`FALKORDB_PORT=…`). Skips are reported as skipped, not passed. |
-| “…browser did not keep the sign-in cookie, so you are still a guest” after signing in or up | The password was right (or the account was created) but the browser dropped the session cookie: cookies are blocked for the site, or `COOKIE_SECURE=1` while the page is served over plain `http://`. Allow cookies, and use HTTPS or set `COOKIE_SECURE=0` for local use. |
+| “This browser did not keep the sign-in cookie” | The browser dropped the session cookie: cookies are blocked for the site, or `COOKIE_SECURE=1` while the page is served over plain `http://`. Allow cookies, and use HTTPS or set `COOKIE_SECURE=0` for local use. |
+| Google: `redirect_uri_mismatch` | The callback URL the app sent isn't in the OAuth client's *Authorized redirect URIs*. Add it exactly, or set `GOOGLE_REDIRECT_URI` (and `TRUST_PROXY=1` behind a proxy, so it is `https://`). |
+| Google: “Access blocked” / only some people can sign in | The OAuth consent screen is in *Testing*: add test users or publish the app. |
+| “Google sign-in is not set up on this server yet” | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` aren't both set; restart after setting them. |
 | “Your sign-in has expired. Please sign in again.” | The session is older than `SESSION_TTL_DAYS` (default 30), or you signed out in another tab. Sign in again; your learning path is kept. |
-| “Too many attempts” when signing in or up | More than 20 tries in 10 minutes from one IP. Wait, or restart the app (the counter is in-process). Behind a proxy see *Known limitations*. |
-| Forgot a password | There is no password reset yet; create a new account (its learning path starts empty). |
+| “Too many attempts” when signing in | More than 20 tries in 10 minutes from one IP. Wait, or restart the app (the counter is in-process). Behind a proxy set `TRUST_PROXY=1`. |
+| Had an email + password account | Sign in with Google using the same (verified) email address: the account and its learning path are linked to Google. |
 | Start over | Memory → *Restore seeded demo* (demo learner) / *Delete my progress* (your account; the account itself is kept), or `docker compose down -v` to drop the database volume, which also deletes all accounts. |
 
 ## License
