@@ -155,7 +155,7 @@ Everything else is served from `public/` (static, 1 h cache).
 | `POST /api/sessions/:id/complete` | `LearningService.complete` | Summary, mastery changes, next briefing |
 | `GET /api/recommendations` | `TutorAgent.brief` | |
 | `GET /api/agents/timeline?limit&sessionId` | `MemoryStore.events` | Persisted `AgentEvent`s |
-| `GET /api/graph/neighborhood?center&depth&limit&all` | `LearningService.neighborhood` | depth ≤ 2, limit 5–80; hides other learners and account data |
+| `GET /api/graph/neighborhood?center&depth&limit&all&sources` | `LearningService.neighborhood` | depth ≤ 2, limit 5–80; hides other learners and account data; `sources=0` also hides source files (`Resource`) |
 | `POST /api/feedback` | `PlannerAgent.setPreference / clearPreference`, `MemoryStore.upsertPreference` | `type` ∈ preference / clear_preference / exercise_feedback |
 | `POST /api/tutor/ask` | `RagService.ask` | `{question ≤ 200 chars}` |
 

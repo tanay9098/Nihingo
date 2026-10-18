@@ -179,6 +179,9 @@ test('bounded graph neighbourhood, library search and grounded Q&A', { skip }, a
   const g = await env.service.neighborhood(L, { depth: 2, limit: 12, viewer: L });
   assert.ok(g.nodes.length <= 12);
   assert.ok(g.edges.some((e) => e.type === 'STUDIES' && e.status));
+  // source files show by default and are left out with `sources: false`
+  assert.ok((await env.service.neighborhood('g-ni', { depth: 1, viewer: L })).nodes.some((n) => n.group === 'Resource'));
+  assert.ok((await env.service.neighborhood('g-ni', { depth: 1, sources: false, viewer: L })).nodes.every((n) => n.group !== 'Resource'));
   const s = await env.catalog.search({ q: 'mizu' });          // romaji
   assert.ok(s.items.some((i) => i.word === '水'));
   assert.ok((await env.catalog.search({ q: 'ミズ' })).items.some((i) => i.word === '水'));  // katakana -> hiragana reading

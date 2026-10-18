@@ -55,6 +55,17 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 
 Newest first. One entry per change: date · summary · files · how it was tested.
 
+* **2026-10-18** · Learning map in plain language. The map no longer shows source files (`kana.json`, PDF names) by default: new optional
+  query parameter `sources=0` on `GET /api/graph/neighborhood` (`LearningService.neighborhood({ sources: false })`) excludes `Resource` nodes;
+  without it the response is unchanged. My progress has a *Show lesson sources* checkbox (off by default); the Today mini-map always hides them.
+  Wording: depth options *Closest items only* / *Show more connections*, status line *Centred on X · N linked items*, legend *Letter (kana)* /
+  *Lesson source*, and the line-colour legend now lists all three statuses (*needs revision* red · *getting there* amber · *strong* green — amber was
+  missing), coloured like the lines. Lesson sources get their own colour (no longer the same grey as Topic); node labels have an outline so lines
+  don't run through them. Files: `server/services/learning.js`, `server/app.js`, `public/js/{graph,memory,dashboard}.js`, `public/css/components.css`,
+  `tests/workflow.test.js`, `tests/api.test.js` (new assertions), `docs/ARCHITECTURE.md`. Tested: `FALKORDB_PORT=6380 npm test` (67/67 pass, none
+  skipped) against FalkorDB (falkordblite module); My progress and Today checked in Chromium (Playwright) at 1280 px and 390 px: no console errors,
+  no horizontal scroll, source nodes appear only with the checkbox on.
+
 * **2026-10-18** · No repeated questions in a practice session. Cause: a vocabulary word has up to five exercises with the same prompt (MC
   meaning, typed recall, flashcard, MC/typed reading), a new-material session cycled over only the 3 recommended path items, the top-up exhausted one
   focus concept before moving on, and "recently seen" (+1) lost to the format preference (+2). Fix in `ExaminerAgent.selectExercises`: a session
