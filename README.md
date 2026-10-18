@@ -24,13 +24,22 @@ Data persists in the `falkordb_data` volume (AOF enabled). Add `--profile graphr
 
 ### Option B — Node locally + FalkorDB in Docker
 ```bash
+# first time: create and start the database container, then the app
 docker run -d --name nihongo-falkordb -p 6380:6379 -p 3000:3000 falkordb/falkordb:v4.18.9
 npm install
 npm start                      # http://localhost:3002
+
+# every later time: the container already exists, so start it instead of running it again
+docker start nihongo-falkordb
+npm start
 ```
+Start the database **before** `npm start`, and wait for `Ready. Mode: …` in the app's log before opening the page. The app retries the connection for about 60 s; if it logs
+`Bootstrap failed: Cannot connect to FalkorDB …`, it has stopped trying, and the page keeps showing “The graph database is starting up” no matter how often you press *Try again*.
+Fix the database (`docker ps` should list `nihongo-falkordb` as `Up`), then stop the app with Ctrl+C and run `npm start` again.
+
 The database is published on host port **6380** (the container itself still listens on its own 6379) and the app runs on **3002**; both are the defaults, so no `.env` is needed.
 If `docker run` says `port is already allocated`, something else uses that host port — check with `docker ps -a` and `sudo ss -ltnp | grep -E '6380|3000|3002'`, and remove a stale container of the same name with `docker rm nihongo-falkordb`.
-On later runs the container already exists: `docker start nihongo-falkordb`, then `npm start`.
+If `docker run` says `Conflict. The container name "/nihongo-falkordb" is already in use`, the container exists from an earlier run: use `docker start nihongo-falkordb` (or `docker rm nihongo-falkordb` and run the full `docker run` line again).
 Requires Node ≥ 20 (developed on 22). Optional: `poppler-utils` (`pdftotext`) enables PDF text extraction during ingestion.
 
 ### Option C — no Docker
@@ -98,7 +107,7 @@ Run in the development sandbox on **Oct 17 2026**:
 ## Troubleshooting
 | Symptom | Fix |
 | --- | --- |
-| “The graph database is starting up” / health returns 503 | FalkorDB isn't reachable yet. `docker compose ps`; check `FALKORDB_HOST/PORT/PASSWORD`. The app retries for ~60 s. |
+| “The graph database is starting up” / health returns 503 | FalkorDB isn't reachable yet. `docker compose ps` / `docker ps -a`; check `FALKORDB_HOST/PORT/PASSWORD`. The app retries for ~60 s, then gives up (`Bootstrap failed` in its log): *Try again* can't recover from that, so start the database and restart the app (`npm start`, or `docker compose restart app`). |
 | `NOAUTH` / `WRONGPASS` errors | Set the same `FALKORDB_PASSWORD` for the app and the database (Compose passes it as `--requirepass`). |
 | Port already in use (`port is already allocated`, `EADDRINUSE`) | Find what holds the port (`docker ps -a`, `sudo ss -ltnp \| grep -E '6380\|3002'`) and stop it, or change `PORT` / `FALKORDB_PORT` in `.env` (with Compose the same two variables change the host ports). |
 | `SocketClosedUnexpectedlyError` / `Unhandled 'error' event` at startup | Something that isn't this project's FalkorDB answers on `FALKORDB_PORT`, or the DB container never started (`docker ps -a`; a container stuck in `Created` means its port was taken). Remove it with `docker rm nihongo-falkordb` and start it again (Option B). |
