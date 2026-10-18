@@ -58,11 +58,11 @@ export class ExaminerAgent {
     // 1) targeted slots: focus concepts, round-robin
     const targeted = primary.activity === 'new_material' ? 0 : Math.max(2, Math.ceil(n * 0.6));
     const focusCands = await candidatesFor(focusIds);
-    const label = { revise_concept: 'Revision of a recurring mistake', revise_prerequisite: 'Prerequisite revision', contrast_revision: 'Side-by-side revision of confusable concepts', topic_revision: 'Topic revision after a listening gap', review_due: 'Due for review' }[primary.activity] ?? 'Focus';
+    const label = { revise_concept: 'Revision of a recurring mistake', revise_prerequisite: 'Revising the basics first', contrast_revision: 'Side-by-side revision of easily confused items', topic_revision: 'Topic revision after a listening gap', review_due: 'Due for review' }[primary.activity] ?? 'Focus';
     let idx = 0, misses = 0;
     while (picks.length < targeted && misses < focusIds.length) {
       const id = focusIds[idx++ % focusIds.length];
-      if (pickFor(focusCands[id] ?? [], partnerOf[id] ? `Confusable with “${partnerOf[id]}” (CONTRASTS_WITH)` : label)) misses = 0; else misses++;
+      if (pickFor(focusCands[id] ?? [], partnerOf[id] ? `Easy to confuse with “${partnerOf[id]}”` : label)) misses = 0; else misses++;
     }
     // 2) other overdue items
     const dueIds = (snapshot.due || []).map((d) => d.id).filter((id) => !focusIds.includes(id)).slice(0, 3);

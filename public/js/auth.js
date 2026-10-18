@@ -56,7 +56,7 @@ export async function render(main) {
     h('h1', { id: 'auth-h' }, me.guest ? 'Keep your guest progress' : 'Start your own learning path'),
     h('p', { class: 'muted' }, me.guest
       ? 'Sign in with Google and your guest learning path moves into your Google account, so you can continue on any device. If you already have an account, you will sign in to it instead and the guest progress stays behind.'
-      : 'Your account gets its own learner memory: sessions, mistakes, mastery and preferences that belong to you alone. No password needed.'),
+      : 'Your account keeps its own progress: sessions, mistakes, what you know and your preferences, belonging to you alone. No password needed.'),
     error,
     google,
     guest ? h('div', { class: 'stack' },

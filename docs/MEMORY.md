@@ -47,13 +47,36 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 * All Cypher is parameterised; label/relationship names come from whitelists only.
 * Every learner-owned node has `learnerId`; accounts link via `profileId` so a progress reset never deletes the account.
 * Every memory write bumps `Learner.memoryVersion`; a stored recommendation with an older `stateVersion` is re-planned.
-* Every agent step logs an `AgentEvent` (`server/agents/events.js`); the UI timeline only reads them.
+* Every agent step logs an `AgentEvent` (`server/agents/events.js`); the UI timeline only reads them and shows them as plain sentences, never raw data.
 * Client-supplied ids (`sessionId`, `attemptId`, `logId`) are idempotent for the owner and refused (403/404/409) for anyone else.
 * Demo mode is the default and must keep working without any LLM key.
 
 ## Change log
 
 Newest first. One entry per change: date · summary · files · how it was tested.
+
+* **2026-10-18** · Plain language, part 2: the *Why this recommendation?* box (`evidenceLines` in `utils.js`) now says *Reason: …*, *How well you
+  know it: about 8%*, *Easy to confuse with “で”* instead of rule ids, raw mastery, `Graph path: CONTRASTS_WITH/REQUIRES` and the memory version.
+  Server wording: Planner reasons say “only about 8% learned” instead of “(estimated mastery 0.078)” (`planner.js`); Examiner reason
+  “Easy to confuse with “X”” instead of “Confusable with “X” (CONTRASTS_WITH)” (`examiner.js`); activity titles *Revise the basics first* /
+  *Compare look-alike items* (`tutor.js`). Recommendations and agent events stored before this keep their old text in the graph, so it is reworded on
+  read (`plainReason` in `tutor.js`, `legacyMessage` in `utils.js`, exercise reasons in `learning.js`): no migration. Also: % known in Due for review,
+  Library item detail and graph tooltips; friendlier loading/empty/help text on Today, Practice, Library, Listening and sign-in. Field names and
+  types unchanged. Files: `server/agents/{planner,examiner,tutor}.js`, `public/js/{utils,learning,dashboard,library,listening,memory,graph,auth}.js`,
+  `tests/unit.test.js` (2 new tests), `docs/DEMO_SCRIPT.md`. Tested: `FALKORDB_PORT=6380 npm test` (64/64 pass, none skipped) against FalkorDB
+  (falkordblite module); Today, Practice briefing, Listening, My progress, a Library item and a full practice session checked in Chromium (Playwright):
+  no graph labels, raw mastery, memory version or JSON in the page text, no console errors, no horizontal scroll at 390 px.
+
+* **2026-10-18** · Plain-language learner UI: agent activity no longer shows raw JSON anywhere. The timeline (`timeline()` in `learning.js`, used on
+  *My progress* and the session summary) now renders one sentence per step via the new `describeEvent()` in `utils.js` (agents labelled *Your tutor* /
+  *Quiz builder* / *Progress tracker*, concept ids resolved to names, relative times); the Read/Changed/Output JSON is gone. Memory page renamed to
+  *My progress* (nav too); Episodic/Semantic/Procedural cards are now *My study history* / *What I've learned* / *How I learn best*, with % known
+  instead of raw mastery, friendly preference labels (`prefText`) and *You chose* / *We noticed* badges; status badges read *new* / *getting there* /
+  *needs revision* / *strong*; graph explorer, Ask the tutor, toasts, session feedback and summary reworded. No API or server change (the `note`
+  fields from `/api/learner/memory` are kept but no longer displayed). Files: `public/index.html`, `public/js/{utils,learning,memory,dashboard,graph}.js`,
+  `tests/unit.test.js` (new plain-language test), `docs/DEMO_SCRIPT.md`, `docs/ARCHITECTURE.md`. Tested: `FALKORDB_PORT=6380 npm test` (62/62 pass,
+  none skipped) against FalkorDB (falkordblite module); full practice session driven in Chromium via Playwright, *My progress* and session summary
+  checked at 1366 px and 390 px: no `{`/`}` or `<code>` in the page, no console/CSP errors, no horizontal scroll.
 
 * **2026-10-18** · Static frontend files are now served with `Cache-Control: public, max-age=0` (was `max-age=3600`) plus ETag, so browsers
   revalidate on every load (304 when unchanged) and a new deploy shows up immediately instead of after up to an hour. Files: `server/app.js`,

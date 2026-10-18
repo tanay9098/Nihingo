@@ -13,7 +13,7 @@ export async function render(main, { showError }) {
     h('div', { class: 'row' }, h('h1', { id: 'plan-h' }, 'Today’s plan'), h('span', { class: 'badge' }, rec.title)),
     h('p', { class: 'jp' }, h('strong', {}, rec.focusName)),
     h('p', {}, d.plan.explanation.text),
-    d.plan.explanation.by.startsWith('LLM') ? h('p', { class: 'small muted' }, 'Wording by an LLM, constrained to the graph evidence below.') : null,
+    d.plan.explanation.by.startsWith('LLM') ? h('p', { class: 'small muted' }, 'Written with AI help, using only the facts below.') : null,
     whyBox(rec),
     first ? h('details', { class: 'why' }, h('summary', {}, 'Quick refresher on the focus'),
       d.plan.lesson.concepts.map((c) => h('div', { class: 'stack' },
@@ -22,7 +22,7 @@ export async function render(main, { showError }) {
         c.example ? h('p', { class: 'jp' }, c.example, h('span', { class: 'muted' }, ` ${c.exampleMeaning || ''}`)) : null))) : null,
     h('div', { class: 'row' },
       h('a', { class: 'btn primary', href: '#/practice?start=1' }, 'Start today’s session'),
-      h('a', { class: 'btn', href: '#/memory' }, 'See agent handoffs')));
+      h('a', { class: 'btn', href: '#/memory' }, 'See what the app did')));
 
   const pathCard = learningPath(d.pathway, rec.evidence?.rule === 'first-session');
 
@@ -44,7 +44,7 @@ export async function render(main, { showError }) {
     d.recentSessions.length ? h('ul', { class: 'list' }, d.recentSessions.map((s) => h('li', {},
       h('span', {}, h('strong', {}, s.attempts ? `${s.correct}/${s.attempts} correct` : 'No answers yet'), ' ', demoBadge(s.isDemo), h('br'), h('span', { class: 'small muted' }, `${ago(s.startedAt)}${s.focus ? ` · focus: ${s.focus}` : ''}`)),
       h('span', { class: 'badge' }, s.status))))
-      : h('div', { class: 'empty' }, 'No sessions yet. Start one and the Memory & Planner agent will begin remembering.'));
+      : h('div', { class: 'empty' }, 'No sessions yet. Start one and the app will begin remembering your progress.'));
 
   const mistakes = h('section', { class: 'card', 'aria-labelledby': 'mist-h' }, h('h2', { id: 'mist-h' }, 'Recently missed'),
     d.recentMistakes.length ? h('ul', { class: 'list' }, d.recentMistakes.map((m) => h('li', {},
@@ -59,12 +59,12 @@ export async function render(main, { showError }) {
       : h('div', { class: 'empty' }, 'No grammar concepts flagged.'));
 
   const due = h('section', { class: 'card', 'aria-labelledby': 'due-h' }, h('h2', { id: 'due-h' }, 'Due for review'),
-    d.due.length ? h('ul', { class: 'list' }, d.due.slice(0, 6).map((x) => h('li', {}, h('span', { class: 'jp' }, x.name), h('span', { class: 'small muted' }, `${x.kind} · mastery ${x.mastery ?? 0}`))))
+    d.due.length ? h('ul', { class: 'list' }, d.due.slice(0, 6).map((x) => h('li', {}, h('span', { class: 'jp' }, x.name), h('span', { class: 'small muted' }, `${x.kind} · ${pct(x.mastery)} known`))))
       : h('div', { class: 'empty' }, 'Nothing overdue.'));
 
-  const mem = h('section', { class: 'card', 'aria-labelledby': 'mem-h' }, h('h2', { id: 'mem-h' }, 'Learner memory graph'),
+  const mem = h('section', { class: 'card', 'aria-labelledby': 'mem-h' }, h('h2', { id: 'mem-h' }, 'My learning map'),
     h('p', { class: 'small muted' }, 'Concepts this learner has studied (edge colour = estimated status). Click a node to explore.'),
-    h('div', { id: 'mini-graph' }, h('p', { class: 'loading' }, 'Loading graph…')));
+    h('div', { id: 'mini-graph' }, h('p', { class: 'loading' }, 'Loading map…')));
 
   clear(main).append(h('div', { class: 'stack' },
     hero, pathCard, h('div', { class: 'grid main-side' }, h('div', { class: 'stack' }, sessions, mistakes, gramRev), h('div', { class: 'stack' }, progress, listenCard, due)), mem));
@@ -74,9 +74,9 @@ export async function render(main, { showError }) {
   try {
     const { renderGraph } = await import('./graph.js');
     const data = await api.neighborhood({ center: d.learner.id, depth: 1, limit: 28 });
-    renderGraph(box, data, { caption: 'Learner memory graph', onSelect: (id) => { location.hash = `#/memory?center=${encodeURIComponent(id)}`; } });
+    renderGraph(box, data, { caption: 'My learning map', onSelect: (id) => { location.hash = `#/memory?center=${encodeURIComponent(id)}`; } });
   } catch (err) {
-    clear(box).append(h('p', { class: 'muted' }, `The graph view is unavailable (${err.message}). The rest of the dashboard still works.`));
+    clear(box).append(h('p', { class: 'muted' }, `The map couldn’t be loaded (${err.message}). The rest of the page still works.`));
   }
 }
 

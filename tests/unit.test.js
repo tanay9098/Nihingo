@@ -13,6 +13,8 @@ import { parseFeed } from '../scripts/refresh-listening-catalog.js';
 import { appMode } from '../server/config.js';
 import { hashPassword, verifyPassword, normalizeEmail } from '../server/services/auth.js';
 import { GoogleAuth } from '../server/services/google.js';
+import { plainReason } from '../server/agents/tutor.js';
+import { describeEvent, prefText, proceduralText, evidenceLines } from '../public/js/utils.js';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
@@ -301,4 +303,54 @@ test('Google sign-in: PKCE start URL; the ID token must match issuer, client, no
   }
   claims = { ...good, email_verified: false };
   await assert.rejects(g.finish({ code: 'c', redirectUri: 'r', flow }), (e) => e.code === 'google_unverified');
+});
+
+test('agent timeline wording is plain language: no JSON, ids or internal keys', () => {
+  const events = [
+    { action: 'retrieve_memory', retrieved: { conceptsWithMistakes: [], storedRecommendation: { id: 'rec:learner:x:study:1', stateVersion: 0 } }, output: { recommendationStale: false } },
+    { action: 'recommend_and_explain', retrieved: { recommendationId: 'rec:x', focus: [{ id: 'kana:あ', name: 'あ' }, { id: 'kana:い', name: 'い' }] }, output: { title: 'Learn something new', message: 'Step 1 of 6.', listening: 'EP 31' } },
+    { action: 'select_exercises', retrieved: { focus: [{ id: 'kana:あ', name: 'あ' }], preferredFormat: 'multiple_choice', formatSource: 'inferred' }, changed: { selectedEdges: 2 }, output: { exercises: [{ id: 'ex:kana:mc_char:kana:あ', why: 'New material · Step 1: Hiragana' }, { id: 'ex:2', why: 'Confusable with “に” (CONTRASTS_WITH)' }] } },
+    { action: 'select_exercises', retrieved: { note: 'seeded demo session' }, changed: { selectedEdges: 1 }, output: { exercises: ['ex:kana:mc_char:kana:あ'] } },
+    { action: 'evaluate_answer', retrieved: { exercise: 'ex:1', concept: 'g:に' }, output: { correct: false, ambiguous: false, quality: 0 } },
+    { action: 'update_memory', changed: { created: ['Attempt', 'Mistake'], updated: ['STUDIES(g:に): mastery 0.2 → 0.12, status learning → struggling'], memoryVersion: 3 } },
+    { action: 'close_session', retrieved: { attemptsInSession: 5, correct: 4 }, changed: { score: 80, proceduralMemory: ['affinity:typed=50%', 'inferred_format=typed'] }, output: { score: 80 } },
+    { action: 'plan_recommendation', output: { activity: 'revise_concept', focus: 'に', rule: 'recurring-mistake', listening: null } },
+    { action: 'unknown_action', retrieved: { a: 1 } },
+  ];
+  for (const e of events) {
+    const text = describeEvent(e).filter(Boolean).join(' ');
+    assert.ok(text.length > 0, e.action);
+    assert.doesNotMatch(text, /[{}[\]"]|\b(rec|ex|kana|g|k|v):\S|STUDIES|_/, `${e.action}: ${text}`);
+  }
+  assert.match(describeEvent(events[2]).join(' '), /Picked 2 questions on あ/);
+  const old = { action: 'recommend_and_explain', output: { title: 'Targeted revision', message: 'You answered 3 questions about “に” incorrectly across 3 sessions (estimated mastery 0.078). Today\'s revision focuses on that.' } };
+  assert.match(describeEvent(old)[1], /across 3 sessions, so it is only about 8% learned\./);
+  assert.match(describeEvent(events[5]).join(' '), /に: 20% → 12% known, now “needs revision”/);
+  const slug = { action: 'update_memory', changed: { updated: ['STUDIES(g-ni): mastery 0 → 0, status new → new'] } };
+  assert.equal(describeEvent(slug)[0], 'Updated your progress on this item: still 0% known.');
+  assert.equal(describeEvent(slug, { 'g-ni': 'に (destination)' })[0], 'Updated your progress on に (destination): still 0% known.');
+  assert.match(describeEvent(events[6]).join(' '), /80% \(4 of 5 correct\).*typed answers/);
+  assert.deepEqual(prefText('preferred_format', 'multiple_choice'), ['Question style you chose', 'multiple choice']);
+  assert.equal(proceduralText('affinity:flashcard=75%'), 'You got 75% right with flashcards.');
+});
+
+test('"Why this recommendation?" lines are plain language: no graph labels, raw mastery or memory version', () => {
+  const rec = { focusName: 'に', evidence: {
+    rule: 'confusable-pair', stage: { step: 1, of: 6, title: 'Hiragana', module: 'Foundations' }, mistakeCount: 5, sessionCount: 3, demoMistakes: 3, liveMistakes: 2,
+    mastery: 0.078, status: 'struggling', prerequisite: { name: '〜ます', attempts: 2, mastery: 0.38 }, contrast: { name: 'で', mistakes: 2 },
+    path: { topic: 'travel' }, dueCount: 1, stateVersion: 19 } };
+  const text = evidenceLines(rec).join(' | ');
+  assert.doesNotMatch(text, /[A-Z]{2,}_|Graph|mastery|version|0\.\d/, text);
+  assert.match(text, /about 8% \(a cautious estimate\) · needs revision/);
+  assert.match(text, /Easy to confuse with “で” \(2 mistakes\)/);
+  assert.match(text, /you know about 38%/);
+  assert.match(evidenceLines({ evidence: { rule: 'some-new-rule' } })[0], /^Reason: Picked from your progress$/);
+});
+
+test('plainReason rewords recommendation reasons stored before the plain-language change', () => {
+  assert.equal(plainReason('You answered 3 questions about “に” incorrectly across 3 sessions (estimated mastery 0.078). Today\'s revision focuses on that.'),
+    'You answered 3 questions about “に” incorrectly across 3 sessions, so it is only about 8% learned. Today\'s revision focuses on that.');
+  assert.match(plainReason('It builds on “〜ます”, which your memory estimates at only 0.38 — so today starts there.'), /which you know only about 38% — so/);
+  assert.match(plainReason('It builds on “x”, which your memory shows you have not practised yet — so'), /which you have not practised yet/);
+  assert.equal(plainReason('Nothing to change.'), 'Nothing to change.');
 });

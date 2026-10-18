@@ -1,5 +1,5 @@
 // Lightweight SVG graph renderer: radial layout, no libraries. Bounded by the server (<= 80 nodes).
-import { h, svg, clear } from './utils.js';
+import { h, svg, clear, pct, STATUS_LABEL } from './utils.js';
 
 const W = 640, H = 460, CX = W / 2, CY = H / 2;
 const GROUP_LABEL = { Learner: 'Learner', vocabulary: 'Vocabulary', grammar: 'Grammar', kanji: 'Kanji', kana: 'Kana', Topic: 'Topic', Lesson: 'Lesson', Recommendation: 'Recommendation', LearningPreference: 'Preference', Resource: 'Resource' };
@@ -41,7 +41,7 @@ export function layout(data) {
 export function renderGraph(container, data, { onSelect, caption } = {}) {
   clear(container);
   if (!data.nodes.length || data.nodes.length === 1) {
-    container.append(h('div', { class: 'empty' }, 'Nothing is connected to this node yet. Complete a practice session to grow the learner memory graph.'));
+    container.append(h('div', { class: 'empty' }, 'Nothing is linked to this yet. Complete a practice session to grow your learning map.'));
     return;
   }
   const pos = layout(data);
@@ -50,16 +50,16 @@ export function renderGraph(container, data, { onSelect, caption } = {}) {
   for (const e of data.edges) {
     const a = pos.get(e.source), b = pos.get(e.target);
     if (!a || !b) continue;
-    edges.append(svg('line', { class: `edge ${e.status || ''}`, x1: a.x, y1: a.y, x2: b.x, y2: b.y }, svg('title', {}, `${e.type}${e.mastery != null ? ` · mastery ${e.mastery}` : ''}`)));
+    edges.append(svg('line', { class: `edge ${e.status || ''}`, x1: a.x, y1: a.y, x2: b.x, y2: b.y }, svg('title', {}, `${String(e.type).toLowerCase().replace(/_/g, ' ')}${e.mastery != null ? ` · ${pct(e.mastery)} known` : ''}`)));
   }
   root.append(edges);
   for (const n of data.nodes) {
     const p = pos.get(n.id);
     const r = n.center ? 22 : n.group === 'Topic' ? 11 : 15;
-    const g = svg('g', { class: 'node', transform: `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`, tabindex: 0, role: 'button', 'aria-label': `${n.label} (${GROUP_LABEL[n.group] || n.group}${n.status ? `, ${n.status}` : ''})` },
+    const g = svg('g', { class: 'node', transform: `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`, tabindex: 0, role: 'button', 'aria-label': `${n.label} (${GROUP_LABEL[n.group] || n.group}${n.status ? `, ${STATUS_LABEL[n.status] || n.status}` : ''})` },
       svg('circle', { r, class: `g-${n.group}` }),
       svg('text', { y: r + 13 }, n.label.length > 14 ? `${n.label.slice(0, 13)}…` : n.label),
-      svg('title', {}, `${n.label} — ${GROUP_LABEL[n.group] || n.group}${n.mastery != null ? ` · mastery ${n.mastery}` : ''}`));
+      svg('title', {}, `${n.label} — ${GROUP_LABEL[n.group] || n.group}${n.mastery != null ? ` · ${pct(n.mastery)} known` : ''}`));
     if (onSelect && !n.center) {
       g.addEventListener('click', () => onSelect(n.id));
       g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onSelect(n.id); } });
@@ -67,12 +67,12 @@ export function renderGraph(container, data, { onSelect, caption } = {}) {
     root.append(g);
   }
   container.append(root, legend(data));
-  if (data.truncated) container.append(h('p', { class: 'small muted', style: null }, `Showing a bounded neighbourhood (limit ${data.limit} nodes).`));
+  if (data.truncated) container.append(h('p', { class: 'small muted', style: null }, `Showing the closest ${data.limit} items only.`));
 }
 
 function legend(data) {
   const seen = [...new Set(data.nodes.map((n) => n.group))];
   const sw = (g) => { const s = svg('svg', { width: 12, height: 12, 'aria-hidden': 'true' }, svg('circle', { cx: 6, cy: 6, r: 6, class: `g-${g}` })); return s; };
   return h('div', { class: 'legend' }, seen.map((g) => h('span', {}, sw(g), ' ', GROUP_LABEL[g] || g)),
-    h('span', {}, 'Edge colour: ', h('b', {}, 'red'), ' struggling · ', h('b', {}, 'green'), ' mastered'));
+    h('span', {}, 'Line colour: ', h('b', {}, 'red'), ' needs revision · ', h('b', {}, 'green'), ' strong'));
 }

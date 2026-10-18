@@ -54,7 +54,7 @@ export function decide(ctx) {
       return {
         activity: 'revise_prerequisite', focus: [{ id: p.id, name: p.name }], rule: 'prerequisite-gap', primary: top,
         prerequisite: p, mistakeIds: top.mistakeIds,
-        reason: `You have missed “${top.name}” ${plural(top.mistakes, 'time')} across ${plural(top.sessions, 'session')}. It builds on “${p.name}”, which your memory ${p.attempts ? `estimates at only ${p.mastery}` : 'shows you have not practised yet'} — so today starts there.`,
+        reason: `You have missed “${top.name}” ${plural(top.mistakes, 'time')} across ${plural(top.sessions, 'session')}. It builds on “${p.name}”, which ${p.attempts ? `you know only about ${Math.round((p.mastery ?? 0) * 100)}%` : 'you have not practised yet'} — so today starts there.`,
       };
     }
     const partner = (contrasts[top.id] || []).map((c) => open.find((o) => o.id === c.id)).find(Boolean);
@@ -68,7 +68,7 @@ export function decide(ctx) {
     }
     return {
       activity: 'revise_concept', rule: 'recurring-mistake', primary: top, focus: [{ id: top.id, name: top.name }], mistakeIds: top.mistakeIds,
-      reason: `You answered ${plural(top.mistakes, 'question')} about “${top.name}” incorrectly across ${plural(top.sessions, 'session')} (estimated mastery ${top.mastery ?? 0}). Today's revision focuses on that.`,
+      reason: `You answered ${plural(top.mistakes, 'question')} about “${top.name}” incorrectly across ${plural(top.sessions, 'session')}, so it is only about ${Math.round((top.mastery ?? 0) * 100)}% learned. Today's revision focuses on that.`,
     };
   }
   const gap = lowListening.find((l) => l.weakConcepts?.length);
