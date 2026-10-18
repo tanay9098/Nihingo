@@ -46,6 +46,12 @@ services:
       AUTO_BOOTSTRAP: ${AUTO_BOOTSTRAP:-1}   # create schema, ingest resources/, seed the demo learner
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}   # how long a learner sign-in lasts
       COOKIE_SECURE: ${COOKIE_SECURE:-0}   # set to 1 when the app is served over HTTPS
+      TRUST_PROXY: ${TRUST_PROXY:-0}   # set to 1 behind a reverse proxy
+      GUEST_TTL_DAYS: ${GUEST_TTL_DAYS:-180}   # unused guest accounts are deleted after this long
+      PASSWORD_AUTH: ${PASSWORD_AUTH:-0}   # legacy email + password endpoints
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
       LLM_PROVIDER: ${LLM_PROVIDER:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}

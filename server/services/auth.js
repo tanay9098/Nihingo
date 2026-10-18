@@ -1,6 +1,8 @@
 // Learner accounts. Every account owns exactly one Learner node whose id the server generates
 // (`learner:<uuid>`), so each learner's memory and learning path is separate by construction.
-// Passwords are stored as scrypt hashes; sign-in sessions are random tokens of which only a SHA-256 hash is stored.
+// Accounts sign in with Google, or are guest accounts reachable only from the browser holding their cookie. The older
+// email + password accounts (scrypt hashes) still work when PASSWORD_AUTH=1 and can be reached with Google via the same email.
+// Sign-in sessions are random tokens of which only a SHA-256 hash is stored.
 import { createHash, randomBytes, randomUUID, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { config } from '../config.js';
@@ -40,8 +42,44 @@ export function normalizeEmail(email) {
 }
 
 export class AuthService {
-  constructor({ memory, ttlMs = config.auth.sessionTtlMs, clock = Date.now }) {
-    Object.assign(this, { memory, ttlMs, clock });
+  constructor({ memory, ttlMs = config.auth.sessionTtlMs, guestTtlMs = config.auth.guestTtlMs, clock = Date.now }) {
+    Object.assign(this, { memory, ttlMs, guestTtlMs, clock });
+  }
+
+  /**
+   * Signs in with a verified Google identity: the account linked to it, else the account with the same email (linked now),
+   * else the current guest account (which keeps its progress), else a new account. `current` is the caller's sign-in, if any.
+   */
+  async signInWithGoogle({ sub, email, name, current = null }) {
+    const e = normalizeEmail(email);
+    const displayName = String(name ?? '').trim().slice(0, 60) || e.split('@')[0];
+    let account = await this.memory.getAccountByGoogleSub(sub);
+    if (!account) {
+      const byEmail = await this.memory.getAccountByEmail(e);
+      if (byEmail?.googleSub) throw new HttpError(409, 'This email address belongs to an account linked to a different Google account.', 'email_taken');
+      const target = byEmail ?? (current?.guest ? { id: current.accountId } : null);
+      try {
+        if (target) account = await this.memory.linkGoogle(target.id, { googleSub: sub, email: e, name: displayName });
+        else {
+          const a = { id: `acct:${randomUUID()}`, email: e, googleSub: sub, kind: 'google', profileId: `learner:${randomUUID()}` };
+          if (await this.memory.createAccount({ ...a, name: displayName, now: this.clock() })) account = a;
+        }
+      } catch (err) {
+        if (!isUniqueViolation(err)) throw err;
+      }
+      account ??= await this.memory.getAccountByGoogleSub(sub); // a parallel sign-in created it first
+      if (!account) throw new HttpError(409, 'Could not create the account. Please try again.', 'email_taken');
+    }
+    const session = await this.#startSession(account);
+    // A guest who signs in to an account that already existed leaves the guest progress behind.
+    return { ...session, guestLeft: !!current?.guest && current.accountId !== account.id };
+  }
+
+  /** A new guest account with its own learner; its only key is the sign-in cookie of this browser. */
+  async startGuest() {
+    const account = { id: `acct:${randomUUID()}`, kind: 'guest', profileId: `learner:${randomUUID()}` };
+    await this.memory.createAccount({ ...account, name: 'Guest', now: this.clock() });
+    return this.#startSession(account);
   }
 
   async signUp({ email, password, name }) {
@@ -74,19 +112,32 @@ export class AuthService {
     if (!token || token.length > 128) return null;
     const s = await this.memory.getAuthSession(tokenHash(token));
     if (!s) return null;
-    if (s.expiresAt <= this.clock()) { await this.memory.deleteAuthSession(s.id); return null; }
-    return { accountId: s.accountId, email: s.email, learnerId: s.profileId };
+    const now = this.clock();
+    if (s.expiresAt <= now) { await this.memory.deleteAuthSession(s.id); return null; }
+    const guest = s.kind === 'guest';
+    const auth = { accountId: s.accountId, email: guest ? null : s.email, learnerId: s.profileId, guest };
+    // A guest account is kept alive while it is used: past half its lifetime the sign-in (and its cookie) is extended.
+    if (guest && s.expiresAt - now < this.guestTtlMs / 2) {
+      auth.renewedUntil = now + this.guestTtlMs;
+      await this.memory.extendAuthSession(s.id, auth.renewedUntil);
+    }
+    return auth;
   }
 
+  /** Ends the sign-in. Signing out of a guest account deletes it: nothing could ever reach its progress again. */
   async signOut(token) {
-    if (token && token.length <= 128) await this.memory.deleteAuthSession(tokenHash(token));
+    if (!token || token.length > 128) return;
+    const s = await this.memory.getAuthSession(tokenHash(token));
+    if (s?.kind === 'guest') await this.memory.deleteAccount(s.accountId);
+    else await this.memory.deleteAuthSession(tokenHash(token));
   }
 
   async #startSession(account) {
     const token = randomBytes(32).toString('base64url');
     const now = this.clock();
-    const expiresAt = now + this.ttlMs;
+    const guest = account.kind === 'guest';
+    const expiresAt = now + (guest ? this.guestTtlMs : this.ttlMs);
     await this.memory.createAuthSession({ id: tokenHash(token), accountId: account.id, profileId: account.profileId, createdAt: now, expiresAt });
-    return { token, expiresAt, auth: { accountId: account.id, email: account.email, learnerId: account.profileId } };
+    return { token, expiresAt, auth: { accountId: account.id, email: guest ? null : account.email, learnerId: account.profileId, guest } };
   }
 }

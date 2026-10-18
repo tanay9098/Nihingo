@@ -46,16 +46,16 @@ async function render() {
 
 const forgetPractice = () => { try { sessionStorage.removeItem('session'); } catch { /* ignore */ } };
 
-/** The account area in the top bar: sign-in links for guests; profile switcher and sign-out when signed in. */
+/** The account area in the top bar: a sign-in link without an account; profile switcher and sign-out with one (guests too). */
 function renderAccount() {
   const el = clear(document.getElementById('account'));
   const me = getMe();
   if (!me.signedIn) {
-    el.append(h('a', { class: 'btn small ghost', href: '#/signin' }, 'Sign in'), h('a', { class: 'btn small primary', href: '#/signup' }, 'Create account'));
+    el.append(h('a', { class: 'btn small primary', href: '#/signin' }, 'Sign in'));
     return;
   }
   const sel = h('select', { id: 'profile' },
-    h('option', { value: me.learner.id }, `My path (${me.learner.name})`),
+    h('option', { value: me.learner.id }, me.guest ? 'My path (guest)' : `My path (${me.learner.name})`),
     h('option', { value: DEMO_LEARNER }, 'Demo learner (Aiko)'));
   sel.value = isDemoView() ? DEMO_LEARNER : me.learner.id;
   sel.addEventListener('change', () => {
@@ -65,15 +65,19 @@ function renderAccount() {
     toast(isDemoView() ? 'Viewing the demo learner' : 'Viewing your own learning path');
     render();
   });
-  const out = h('button', { class: 'btn small ghost', type: 'button', title: me.email }, 'Sign out');
+  const out = h('button', { class: 'btn small ghost', type: 'button', title: me.email ?? 'Guest account' }, 'Sign out');
   out.addEventListener('click', async () => {
+    // Nothing else leads back to a guest account, so the server deletes it on sign-out.
+    if (me.guest && !window.confirm('Signing out of a guest account deletes its progress for good. Sign in with Google first to keep it. Sign out anyway?')) return;
     out.disabled = true;
     try { setMe(await api.signOut()); } catch (err) { out.disabled = false; toast(err.message); return; }
     setViewDemo(false); forgetPractice();
     refreshChrome(); toast('Signed out');
     location.hash = '#/'; render();
   });
-  el.append(h('label', { class: 'profile' }, h('span', { class: 'sr' }, 'Learner profile'), sel), out);
+  el.append(h('label', { class: 'profile' }, h('span', { class: 'sr' }, 'Learner profile'), sel));
+  if (me.guest) el.append(h('a', { class: 'btn small primary', href: '#/signin' }, 'Save with Google'));
+  el.append(out);
 }
 
 function refreshChrome() { renderAccount(); updateBanner(); }
@@ -84,11 +88,23 @@ async function init() {
   // The sign-in ended (expired or signed out elsewhere): fall back to guest and ask to sign in again.
   window.addEventListener('auth:expired', () => {
     if (!getMe().signedIn) return;
+    const wasGuest = getMe().guest;
     setMe({ signedIn: false, learner: { id: DEMO_LEARNER, name: '' } }); forgetPractice();
-    refreshChrome(); toast('Your sign-in has expired. Please sign in again.');
+    refreshChrome(); toast(wasGuest ? 'Your guest account has ended.' : 'Your sign-in has expired. Please sign in again.');
     location.hash = '#/signin';
   });
-  try { setMe(await api.me()); } catch { /* server not ready: continue as guest */ }
+  try { setMe(await api.me()); } catch { /* server not ready: continue without an account */ }
+  // Back from Google (/api/auth/google/callback redirects to #/?signedin=google).
+  const back = new URLSearchParams(location.hash.split('?')[1] || '');
+  if (back.get('signedin') === 'google') {
+    history.replaceState(null, '', '#/');
+    if (getMe().signedIn) {
+      setViewDemo(false); forgetPractice();
+      toast(back.get('guest') === 'left'
+        ? `Signed in as ${getMe().learner.name}. You already had an account, so the guest progress was not moved into it.`
+        : `Signed in as ${getMe().learner.name}`);
+    } else location.hash = '#/signin?error=cookie_blocked';
+  }
   refreshChrome();
   try {
     const hd = await api.health();
@@ -107,10 +123,15 @@ async function init() {
 
 export function updateBanner() {
   const el = clear(document.getElementById('banner'));
-  if (!isDemoView() || ['signin', 'signup'].includes(currentRoute())) { el.hidden = true; return; }
+  const me = getMe();
+  if (['signin', 'signup'].includes(currentRoute()) || (!isDemoView() && !me.guest)) { el.hidden = true; return; }
   el.hidden = false; el.className = 'banner demo';
+  if (!isDemoView()) {
+    el.append('You are using a guest account: your progress is saved in this browser only. ', h('a', { href: '#/signin' }, 'Sign in with Google'), ' to keep it on any device.');
+    return;
+  }
   el.append('You are viewing the demo learner “Aiko”. Her earlier sessions are pre-seeded demo data; anything you answer now is recorded as live activity.');
-  if (!getMe().signedIn) el.append(' ', h('a', { href: '#/signup' }, 'Create an account'), ' to start your own learning path.');
+  if (!me.signedIn) el.append(' ', h('a', { href: '#/signin' }, 'Sign in with Google or continue as a guest'), ' to start your own learning path.');
 }
 
 init();

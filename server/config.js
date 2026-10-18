@@ -16,6 +16,8 @@ export const config = {
   publicDir: path.join(ROOT, 'public'),
   resourcesDir: path.resolve(ROOT, env.RESOURCES_DIR || 'resources'),
   autoBootstrap: env.AUTO_BOOTSTRAP !== '0',
+  // Behind a reverse proxy (Render, Fly, nginx, …) set TRUST_PROXY=1 so the client IP (rate limits) and https are read from X-Forwarded-*.
+  trustProxy: env.TRUST_PROXY === '1',
   falkor: {
     host: env.FALKORDB_HOST || 'localhost',
     port: Number(env.FALKORDB_PORT) || 6380,
@@ -37,6 +39,17 @@ export const config = {
     sessionTtlMs: (Number(env.SESSION_TTL_DAYS) || 30) * 24 * 60 * 60 * 1000,
     // Send the session cookie only over HTTPS. Turn on whenever the app is served over HTTPS.
     cookieSecure: env.COOKIE_SECURE === '1',
+    // A guest account lives only in this browser's cookie; it is kept alive while used and removed after this long unused.
+    guestTtlMs: (Number(env.GUEST_TTL_DAYS) || 180) * 24 * 60 * 60 * 1000,
+    // Email + password sign-in is off by default (sign-in is with Google); PASSWORD_AUTH=1 re-enables the old endpoints.
+    passwordAuth: env.PASSWORD_AUTH === '1',
+  },
+  // Sign in with Google (OAuth 2.0 authorization-code flow with PKCE). Enabled when both the id and the secret are set.
+  google: {
+    clientId: (env.GOOGLE_CLIENT_ID || '').trim(),
+    clientSecret: (env.GOOGLE_CLIENT_SECRET || '').trim(),
+    // Must match an "Authorized redirect URI" of the OAuth client. Empty: derived from the request (<origin>/api/auth/google/callback).
+    redirectUri: (env.GOOGLE_REDIRECT_URI || '').trim(),
   },
 };
 

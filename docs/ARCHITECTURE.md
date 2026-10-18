@@ -11,7 +11,7 @@
 | Backend | Node.js ≥ 20 (developed on 22), ES modules (`"type": "module"`) | `.env` loaded natively with `process.loadEnvFile` (no `dotenv`). |
 | HTTP framework | Express 5 (`express`) | The **only** web dependency. JSON bodies capped at 20 kB; security headers set by hand (no `helmet`). |
 | Database | FalkorDB (Redis module, property graph, Cypher) via the official `falkordb` npm client | Persistent with AOF + Docker volume. Graph `nihongo`; optional sidecar graph `nihongo_rag`. |
-| Auth | Built in (`node:crypto`): scrypt password hashes, random 256-bit session tokens (SHA-256 stored) | No passport/bcrypt/jwt libraries. |
+| Auth | Built in (`node:crypto` + `fetch`): Google OAuth 2.0 authorization-code flow with PKCE, guest accounts, random 256-bit session tokens (SHA-256 stored); legacy scrypt password hashes | No passport/google-auth-library/bcrypt/jwt libraries, no Google script in the page. |
 | LLM (optional, AI mode) | Anthropic Messages API or any OpenAI-compatible Chat Completions API, called with `fetch` | No SDK dependency. Without provider + key + model the app runs in deterministic **demo mode**. |
 | Ingestion | Own RFC-4180 CSV parser, JSON/JSONL, PDFs via `pdftotext`/`pdfinfo` (`poppler-utils`, optional system tool) | No parsing libraries. |
 | Optional sidecar | Python ≥ 3.10, `graphrag-sdk[litellm]`, `aiohttp` (`graphrag/`) | Only used in AI mode when `GRAPHRAG_URL` is set. |
@@ -43,7 +43,8 @@ Runtime npm dependencies are exactly two: `express` and `falkordb` (see `package
 │   │   └── memory.js            MemoryStore: learners, accounts, sessions, attempts, mistakes, STUDIES, prefs, recs, events
 │   ├── services/
 │   │   ├── learning.js          LearningService: orchestrates the 3 agents; dashboard/memory read models; graph explorer; HttpError
-│   │   ├── auth.js              AuthService: sign-up/in/out, password hashing, session tokens
+│   │   ├── auth.js              AuthService: Google + guest + legacy password sign-in, sign-out, session tokens
+│   │   ├── google.js            GoogleAuth: OAuth consent URL (state, PKCE, nonce), code exchange, ID-token claim checks
 │   │   ├── rag.js               RagService: graph retrieval for “Ask the Tutor” (+ optional sidecar / LLM)
 │   │   └── llm.js               askJson() for Anthropic/OpenAI with validation + fallback; numbersSubset()
 │   ├── ingestion/               resources/ → graph: files.js (discovery + handlers), mapping.js (column detection),
@@ -92,11 +93,13 @@ Ingestion (boot or `npm run ingest`): resources/ → server/ingestion/* → Cata
 ### Boot sequence (`server/index.js`)
 
 1. The HTTP server starts listening immediately; until the DB is ready `/api/health` returns 503 and other `/api` routes return `db_unavailable`.
-2. `GraphClient.connect()` retries 60 × 1 s, then gives up (`Bootstrap failed` in the log; the app must be restarted).
+2. `GraphClient.connect()` tries 10 × 1 s; if that or any later step fails, `bootLoop()` logs `Bootstrap failed (attempt n): …`, keeps the error for
+   `/api/health`, waits 5–60 s (growing) and starts over, for as long as the process runs. A late database is therefore picked up without a restart.
+   With `FALKORDB_HOST=localhost` on a hosting platform (`RENDER` or `NODE_ENV=production`) the log also says that the database must be configured.
 3. `ensureSchema()` creates indexes/constraints (idempotent).
 4. If `AUTO_BOOTSTRAP` ≠ `0`: ingest `resources/`, ensure the demo learner (and delete the legacy `learner:me`), seed the demo history if it has none.
    Otherwise only the learners are ensured.
-5. Expired `AuthSession`s are pruned; the service objects are published and the app reports `Ready. Mode: …`.
+5. Expired `AuthSession`s and guest accounts left without any sign-in are pruned (again once a day); the service objects are published and the app reports `Ready. Mode: …`.
 
 ## API flow
 
@@ -109,6 +112,7 @@ request → security headers (CSP, nosniff, Referrer-Policy) → express.json (2
         → GET /api/health (answers even while the DB is down)
         → identity middleware: services ready? (else 503) · nh_session cookie → AuthService.resolve() → req.auth
                                expired/unknown cookie → cleared, 401 session_expired (except /auth/*)
+                               guest sign-in past half its lifetime → extended, cookie re-sent
                                X-Learner-Id: only "learner:demo" or the caller's own learner (else 401/403)
                                req.learnerId = X-Learner-Id || own learner || "learner:demo"
         → route handler: validate inputs (str/id/int helpers) → service/store call → ok(res, data)
@@ -123,10 +127,14 @@ Everything else is served from `public/` (static, 1 h cache).
 | Method & path | Handler | Notes |
 | --- | --- | --- |
 | `GET /api/health` | app.js | Mode, DB latency, counts, bootstrap info; 503 while starting |
-| `GET /api/auth/me` | app.js `meView` | `{signedIn, email?, learner}` |
-| `POST /api/auth/signup` | `AuthService.signUp` | `{email, password (≥ 8), name?}` → 201 + cookie; 409 `email_taken`; rate-limited |
-| `POST /api/auth/signin` | `AuthService.signIn` | 401 `bad_credentials` (same for unknown email); rate-limited |
-| `POST /api/auth/signout` | `AuthService.signOut` | Deletes the session server-side, clears the cookie |
+| `GET /api/auth/me` | app.js `meView` | `{signedIn:false, learner}` without an account; else `{signedIn:true, guest, email? (not for guests), learner}` |
+| `GET /api/auth/options` | app.js | `{google, guest, password}`: which sign-in methods this server offers |
+| `GET /api/auth/google/start` | `GoogleAuth.start` | Browser navigation: sets the `nh_oauth` cookie (state, PKCE verifier, nonce; 10 min) and 303-redirects to Google. Not configured → `/#/signin?error=google_disabled` |
+| `GET /api/auth/google/callback` | `GoogleAuth.finish` + `AuthService.signInWithGoogle` | Checks `state`, exchanges the code, sets `nh_session`, 303 → `/#/?signedin=google` (`&guest=left` if a guest signed in to an existing account). Errors → `/#/signin?error=<code>` (`google_state`, `google_cancelled`, `google_unverified`, `google_failed`, `email_taken`, `rate_limited`); rate-limited |
+| `POST /api/auth/guest` | `AuthService.startGuest` | New guest account + learner → 201 + cookie (`GUEST_TTL_DAYS`); with an account already, returns it unchanged; rate-limited |
+| `POST /api/auth/signup` | `AuthService.signUp` | Legacy, only with `PASSWORD_AUTH=1` (else 410 `password_auth_disabled`). `{email, password (≥ 8), name?}` → 201 + cookie; 409 `email_taken`; rate-limited |
+| `POST /api/auth/signin` | `AuthService.signIn` | Legacy, only with `PASSWORD_AUTH=1` (else 410). 401 `bad_credentials` (same for unknown email); rate-limited |
+| `POST /api/auth/signout` | `AuthService.signOut` | Deletes the session server-side, clears the cookie; for a guest it deletes the whole guest account and its learner |
 | `GET /api/dashboard` | `LearningService.dashboard` | Today page: plan, pathway, progress, due, mistakes, listening pick |
 | `GET /api/library?q&kind&topic&limit&offset` | `CatalogStore.search` | `kind` ∈ vocabulary/kanji/kana/grammar |
 | `GET /api/library/item?id=` | `CatalogStore.getConcept` + learner's `STUDIES` state | 404 if unknown |
@@ -182,7 +190,7 @@ Writes use `GraphClient.query()`, reads may use `GraphClient.read()` (`roQuery`)
 | `Lesson` | `videoId`, `url`, `embedUrl`, `difficulty`, `difficultyEvidence`, `embeddable` | Listening catalog (Lazy Benkyou). |
 | `Topic` | `name` | Shared tag for concepts and lessons. |
 | `Learner` | `name`, `isDemo`, `memoryVersion` | `memoryVersion` is bumped on every memory write; recommendations record the version they were computed from. |
-| `Account` | `email` (unique), `passwordHash` (scrypt), `profileId` | One per sign-up; owns exactly one `Learner` (`profileId` = `learner:<uuid>`, generated by the server). Never shown in the graph explorer. |
+| `Account` | `kind` (`google` \| `guest`; none = legacy password account), `email` (unique), `googleSub` (unique), `passwordHash` (scrypt, legacy only), `profileId` | Owns exactly one `Learner` (`profileId` = `learner:<uuid>`, generated by the server). A guest account has neither email nor `googleSub`; signing in with Google turns it into a `google` account with the same learner. Never shown in the graph explorer. |
 | `AuthSession` | `accountId`, `profileId`, `expiresAt` | A sign-in. `id` is the SHA-256 of the cookie token; the token itself is never stored. |
 | `LearningSession` | `startedAt`, `status` (`planning` → `completed`), `score`, `isDemo`, `focus`, `mode` | Episodic. |
 | `Attempt` | `correct`, `ambiguous`, `quality`, `answer`, `expected`, `format`, `masteryBefore/After`, `statusAfter`, `isDemo` | Episodic; id supplied by the client → idempotent for the same learner; an id another learner already used is refused (409). |
@@ -209,8 +217,9 @@ Episodic and learner-owned nodes carry a `learnerId` property; that is what lear
 | `(Learner)-[:HAS_EVENT]->(AgentEvent)`; `(LearningSession)-[:LOGGED]->(AgentEvent)`; `(AgentEvent)-[:HANDED_OFF_TO]->(AgentEvent)` | Agent timeline |
 
 Indexes: a range index on `id` for every label in `ID_LABELS` (all node labels above except `Meta`) plus `learnerId` on `Attempt`, `Mistake`,
-`AgentEvent` and `LearningSession`, and a UNIQUE constraint on `id`; `Account.email` also has a range index and a UNIQUE constraint, so two accounts
-can never share an email even under concurrent sign-ups (`server/graph/schema.js`, idempotent; `SCHEMA_VERSION` 2). Search uses a precomputed
+`AgentEvent` and `LearningSession`, and a UNIQUE constraint on `id`; `Account.email` and `Account.googleSub` also have a range index and a UNIQUE constraint, so two accounts
+can never share an email or a Google identity even under concurrent sign-ins (nodes without the property, e.g. guests, are not constrained); `Account.kind` and
+`AuthSession.accountId` are indexed for guest pruning (`server/graph/schema.js`, idempotent; `SCHEMA_VERSION` 3). Search uses a precomputed
 lower-case `search` property (word, hiragana reading, romaji, English, tags) so Japanese, kana, romaji and English queries all work with a parameterised `CONTAINS`.
 Because FalkorDB properties can only be primitives/arrays, structured values (choices, evidence) are stored as JSON strings.
 
@@ -275,15 +284,17 @@ edges, resets `memoryVersion` to 0 and re-seeds. “Delete my progress” on an 
 
 ## Accounts and learner isolation
 
-Sign-up (`server/services/auth.js`) creates an `Account` and a new `Learner` with a server-generated id in one query, so each account has its own
-learning path and memory from the first request. The session is an HttpOnly, SameSite=Lax cookie (`nh_session`); the server resolves it to the
+Creating an account (`server/services/auth.js`: first Google sign-in or *Continue as guest*) creates an `Account` and a new `Learner` with a server-generated id in one query, so each account has its own
+learning path and memory from the first request. A Google sign-in finds the account by `googleSub`, else by the same verified email (linking a legacy password
+account), else upgrades the caller's guest account (same learner, so the guest's progress is kept), else creates a new one. A guest signing in to an account that
+already existed leaves the guest account behind, and it is deleted (its cookie is replaced). The session is an HttpOnly, SameSite=Lax cookie (`nh_session`); the server resolves it to the
 learner id on every request and never takes the learner from the client. `X-Learner-Id` may only switch a signed-in user to the demo learner;
-any other value is refused (401 for guests, 403 when signed in). Without a cookie the visitor is a guest on `learner:demo`.
+any other value is refused (401 without an account, 403 with one). Without a cookie the visitor sees `learner:demo`.
 `Account`/`AuthSession` link to their learner through `profileId` rather than `learnerId`, so resetting a learner's progress keeps the account.
 
 Ids sent by the browser are checked against the owner: sessions and their timelines (404/403), attempt ids and listening-log ids already used
 by another learner (409). The graph explorer refuses to centre on another learner, anything they own, or account data, and filters those out of
-every neighbourhood. Sign-in and sign-up are rate-limited per IP (in-process), and writes whose `Origin` names another site are rejected.
+every neighbourhood. Sign-in and guest creation are rate-limited per IP (in-process), and writes whose `Origin` names another site are rejected.
 
 ## GraphRAG
 
@@ -302,12 +313,17 @@ whitelists). Inputs are length/format-validated, JSON bodies capped at 20 kB, CS
 and frames to YouTube.
 
 Accounts (see *Accounts and learner isolation*):
-* Passwords (≥ 8 characters) are stored only as salted scrypt hashes (`scrypt$N$r$p$salt$hash`) and never returned; a wrong password and an unknown email give the
+* Google sign-in is the server-side authorization-code flow with PKCE (S256), a random `state` (CSRF) and `nonce`, kept in the HttpOnly `nh_oauth` cookie (path
+  `/api/auth/google`, 10 min). The ID token comes directly from Google's token endpoint over TLS in exchange for the client secret, so its signature is not
+  re-checked; `iss`, `aud` (= client id), `exp`, `nonce` and `email_verified` are. `GOOGLE_CLIENT_SECRET` exists only in server env.
+* A guest account's only credential is its `nh_session` cookie; it lasts `GUEST_TTL_DAYS` (default 180), is extended while used, and is deleted on sign-out or once
+  no sign-in for it remains.
+* Legacy (only with `PASSWORD_AUTH=1`): passwords (≥ 8 characters) are stored only as salted scrypt hashes (`scrypt$N$r$p$salt$hash`) and never returned; a wrong password and an unknown email give the
   same `401` and take the same work, so sign-in does not reveal which emails are registered (sign-up does answer `409` for a taken email).
 * The session cookie `nh_session` is a random 256-bit token, `HttpOnly` and `SameSite=Lax`; only its SHA-256 is stored, so a database dump holds no
   usable tokens. `Secure` is added with `COOKIE_SECURE=1`, which must be set whenever the app is served over HTTPS. Sign-ins expire after
   `SESSION_TTL_DAYS` (default 30); expired ones are deleted on use and on boot. Sign-out deletes the session server-side.
 * Writes whose `Origin` names another site are rejected (403) on top of `SameSite=Lax`.
-* Sign-in and sign-up are limited to 20 attempts per 10 minutes per client IP, counted in-process (reset on restart, not shared between instances).
-  Behind a reverse proxy configure Express `trust proxy`, or every user shares the proxy's IP and therefore one limit.
-* Not implemented: email verification, password reset, account deletion, multi-factor sign-in.
+* Sign-in and guest creation are limited to 20 attempts per 10 minutes per client IP, counted in-process (reset on restart, not shared between instances).
+  Behind a reverse proxy set `TRUST_PROXY=1` (Express `trust proxy` = 1 hop), or every user shares the proxy's IP and therefore one limit.
+* Not implemented: account deletion for Google accounts, multi-factor sign-in (left to Google).

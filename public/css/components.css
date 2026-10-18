@@ -126,10 +126,8 @@ svg.graph .node:focus-visible circle { stroke: var(--focus); stroke-width: 4; }
 .account { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .auth-card { max-width: 440px; margin: 12px auto; }
 .auth-card h1 { margin: 0; font-size: 1.5rem; }
-.auth-tabs { display: flex; gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 999px; }
-.auth-tabs a { flex: 1; text-align: center; padding: 8px 12px; border-radius: 999px; text-decoration: none; color: var(--ink-2); font-weight: 600; }
-.auth-tabs a[aria-current="page"] { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
-.auth-field { display: grid; gap: 4px; font-weight: 600; font-size: .9rem; }
-.auth-field input { font: inherit; font-weight: 400; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-height: 44px; width: 100%; box-sizing: border-box; }
-.auth-card .btn.primary { width: 100%; }
+.auth-card .btn { width: 100%; }
+.auth-card .g-mark { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #fff; color: #4285f4; font-weight: 700; font-size: .85rem; }
+.auth-or { display: flex; align-items: center; gap: 10px; color: var(--ink-2); font-size: .85rem; }
+.auth-or::before, .auth-or::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
 .error-box[hidden] { display: none; }

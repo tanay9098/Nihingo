@@ -24,6 +24,8 @@ const int = (v, def, min, max) => {
 };
 
 const SESSION_COOKIE = 'nh_session';
+// Holds the OAuth state, PKCE verifier and nonce between /auth/google/start and the callback.
+const OAUTH_COOKIE = 'nh_oauth';
 function readCookie(req, name) {
   for (const part of (req.get('cookie') || '').split(';')) {
     const i = part.indexOf('=');
@@ -50,6 +52,7 @@ function rateLimiter({ max, windowMs }) {
 export function createApp(ctx, cfg = config) {
   const app = express();
   app.disable('x-powered-by');
+  if (cfg.trustProxy) app.set('trust proxy', 1);
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -85,7 +88,7 @@ export function createApp(ctx, cfg = config) {
   }));
 
   // Who is asking. A signed-in account always works on its own learner (from the session cookie, never from the
-  // request); `X-Learner-Id` can only switch to the demo learner. Without an account the visitor is a guest on the demo learner.
+  // request); `X-Learner-Id` can only switch to the demo learner. A visitor without any account (not even a guest one) sees the demo learner.
   api.use(asyncH(async (req, res, next) => {
     try { req.s = await ctx.get(); } catch (e) { throw new HttpError(503, 'The graph database is not reachable yet. Please retry in a moment.', 'db_unavailable'); }
     req.token = readCookie(req, SESSION_COOKIE);
@@ -94,6 +97,7 @@ export function createApp(ctx, cfg = config) {
       res.clearCookie(SESSION_COOKIE, cookieOpts);
       if (!req.path.startsWith('/auth/')) throw new HttpError(401, 'Your sign-in has expired. Please sign in again.', 'session_expired');
     }
+    if (req.auth?.renewedUntil) res.cookie(SESSION_COOKIE, req.token, { ...cookieOpts, expires: new Date(req.auth.renewedUntil) });
     const asked = req.get('x-learner-id');
     if (asked && asked !== DEMO_LEARNER.id && asked !== req.auth?.learnerId) {
       throw req.auth ? new HttpError(403, 'That learner profile belongs to another account', 'forbidden') : new HttpError(401, 'Sign in to use your own learner profile', 'auth_required');
@@ -106,7 +110,9 @@ export function createApp(ctx, cfg = config) {
   const meView = async (req, auth) => {
     if (!auth) return { signedIn: false, learner: { id: DEMO_LEARNER.id, name: DEMO_LEARNER.name } };
     const l = await req.s.memory.getLearner(auth.learnerId);
-    return { signedIn: true, email: auth.email, learner: { id: auth.learnerId, name: l?.name ?? '' } };
+    const learner = { id: auth.learnerId, name: l?.name ?? '' };
+    // A guest has its own learner too (so `signedIn` is true), but no email and nothing but this browser's cookie.
+    return auth.guest ? { signedIn: true, guest: true, learner } : { signedIn: true, guest: false, email: auth.email, learner };
   };
   const limitAuth = (req) => { if (!authAttempt(req.ip)) throw new HttpError(429, 'Too many attempts. Please wait a few minutes and try again.', 'rate_limited'); };
   const signedIn = async (req, res, r, status) => {
@@ -114,8 +120,52 @@ export function createApp(ctx, cfg = config) {
     res.cookie(SESSION_COOKIE, r.token, { ...cookieOpts, expires: new Date(r.expiresAt) });
     ok(res, await meView(req, r.auth), status);
   };
+  const passwordAuth = () => {
+    if (!cfg.auth.passwordAuth) throw new HttpError(410, 'Email and password sign-in is turned off. Continue with Google instead.', 'password_auth_disabled');
+  };
   api.get('/auth/me', asyncH(async (req, res) => ok(res, await meView(req, req.auth))));
+  api.get('/auth/options', (req, res) => ok(res, { google: !!req.s.google?.enabled, guest: true, password: !!cfg.auth.passwordAuth }));
+  api.post('/auth/guest', asyncH(async (req, res) => {
+    if (req.auth) return ok(res, await meView(req, req.auth));
+    limitAuth(req);
+    await signedIn(req, res, await req.s.auth.startGuest(), 201);
+  }));
+
+  // Sign in with Google: a browser navigation (not fetch) to /start, Google's consent screen, then back to /callback,
+  // which sets the session cookie and redirects into the app. Errors come back as #/signin?error=<code>.
+  const oauthCookie = { ...cookieOpts, path: '/api/auth/google' };
+  const redirectUri = (req) => cfg.google.redirectUri || `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+  api.get('/auth/google/start', asyncH(async (req, res) => {
+    if (!req.s.google?.enabled) return res.redirect(303, '/#/signin?error=google_disabled');
+    const { url, flow } = req.s.google.start(redirectUri(req));
+    res.cookie(OAUTH_COOKIE, Buffer.from(JSON.stringify(flow)).toString('base64url'), { ...oauthCookie, maxAge: 10 * 60 * 1000 });
+    res.redirect(303, url);
+  }));
+  api.get('/auth/google/callback', asyncH(async (req, res) => {
+    const fail = (code) => res.redirect(303, `/#/signin?error=${encodeURIComponent(code)}`);
+    let flow = null;
+    try { flow = JSON.parse(Buffer.from(readCookie(req, OAUTH_COOKIE), 'base64url').toString('utf8')); } catch { /* missing or mangled */ }
+    res.clearCookie(OAUTH_COOKIE, oauthCookie);
+    if (!req.s.google?.enabled) return fail('google_disabled');
+    const { code, state, error } = req.query;
+    if (error) return fail(error === 'access_denied' ? 'google_cancelled' : 'google_failed');
+    if (typeof flow?.state !== 'string' || typeof state !== 'string' || state !== flow.state || typeof code !== 'string' || !code || code.length > 2048) return fail('google_state');
+    if (!authAttempt(req.ip)) return fail('rate_limited');
+    let r;
+    try {
+      const identity = await req.s.google.finish({ code, redirectUri: redirectUri(req), flow });
+      r = await req.s.auth.signInWithGoogle({ ...identity, current: req.auth });
+    } catch (err) {
+      if (err instanceof HttpError) return fail(err.code);
+      throw err;
+    }
+    if (req.token) await req.s.auth.signOut(req.token);
+    res.cookie(SESSION_COOKIE, r.token, { ...cookieOpts, expires: new Date(r.expiresAt) });
+    res.redirect(303, `/#/?signedin=google${r.guestLeft ? '&guest=left' : ''}`);
+  }));
+
   api.post('/auth/signup', asyncH(async (req, res) => {
+    passwordAuth();
     limitAuth(req);
     const b = req.body ?? {};
     await signedIn(req, res, await req.s.auth.signUp({
@@ -123,6 +173,7 @@ export function createApp(ctx, cfg = config) {
     }), 201);
   }));
   api.post('/auth/signin', asyncH(async (req, res) => {
+    passwordAuth();
     limitAuth(req);
     const b = req.body ?? {};
     await signedIn(req, res, await req.s.auth.signIn({ email: str(b.email, 'email', { max: 254 }), password: str(b.password, 'password', { max: 128 }) }));

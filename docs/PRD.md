@@ -86,11 +86,11 @@ A study companion that **remembers** each learner in a graph (what they studied,
 ### 6.1 Accounts and access
 | ID | Requirement | Status |
 | --- | --- | --- |
-| FR-1 | Users can sign up with email + password (min. 8 characters) and sign in / sign out. | ✅ |
+| FR-1 | Users sign up / sign in with Google (no password) and sign out. Email + password is legacy, off unless `PASSWORD_AUTH=1`; such accounts are linked to Google by verified email. | ✅ |
 | FR-2 | Every account gets exactly one learner of its own; its learning path, memory and history are separate from all others. | ✅ |
-| FR-3 | Visitors without an account use the seeded demo learner as guests; signed-in users can switch to the demo learner and back. | ✅ |
+| FR-3 | Visitors without an account browse the seeded demo learner, or *continue as guest*: a guest account with its own learner whose progress is kept for that browser (cookie) and moves into a Google account on Google sign-in. Anyone with an account can switch to the demo learner and back. | ✅ |
 | FR-4 | Sign-ins expire after a configurable period (default 30 days). | ✅ |
-| FR-5 | Email verification, password reset and account deletion. | ☐ |
+| FR-5 | Account deletion (guest accounts are deleted on sign-out; email verification and password reset are left to Google). | ☐ |
 
 ### 6.2 Today (dashboard)
 | ID | Requirement | Status |
@@ -159,7 +159,7 @@ A study companion that **remembers** each learner in a graph (what they studied,
 
 | ID | Area | Requirement | Status |
 | --- | --- | --- | --- |
-| NFR-1 | Security | Passwords stored only as salted scrypt hashes; wrong password and unknown email are indistinguishable at sign-in. | ✅ |
+| NFR-1 | Security | Google sign-in uses the authorization-code flow with PKCE, `state` and `nonce`; the client secret stays on the server. Legacy passwords stored only as salted scrypt hashes. | ✅ |
 | NFR-2 | Security | Session cookie is a random 256-bit token, `HttpOnly`, `SameSite=Lax`, optional `Secure`; only its SHA-256 is stored. | ✅ |
 | NFR-3 | Security | Cross-site writes rejected (`Origin` check); sign-in/sign-up rate-limited to 20 attempts / 10 min / IP. | ✅ (in-process limiter) |
 | NFR-4 | Security | Database password and LLM key never reach the browser; all Cypher parameterised; inputs validated; JSON bodies ≤ 20 kB; strict CSP. | ✅ |

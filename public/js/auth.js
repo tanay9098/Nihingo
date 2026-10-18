@@ -1,70 +1,68 @@
-// Sign in / create account. Each account gets its own learner, so its learning path and memory start empty
-// and are never shared. Guests can keep using the demo learner without an account.
+// Sign in with Google, or continue as a guest. Every account (guest ones too) gets its own learner, so its learning path
+// and memory start empty and are never shared. A guest account lives only in this browser; signing in with Google keeps
+// its progress. Without either, a visitor just looks at the demo learner.
 import { api, getMe, setMe, setViewDemo } from './api.js';
 import { h, clear } from './utils.js';
 
-const PASSWORD_MIN = 8;
-
-function field(label, attrs) {
-  const input = h('input', { ...attrs, id: `auth-${attrs.name}` });
-  return { input, el: h('label', { class: 'auth-field', for: input.id }, h('span', {}, label), input) };
-}
+const ERRORS = {
+  google_disabled: 'Google sign-in is not set up on this server yet.',
+  google_cancelled: 'Google sign-in was cancelled.',
+  google_state: 'The Google sign-in expired or was started in another tab. Please try again.',
+  google_unverified: 'Your Google account has no verified email address.',
+  google_failed: 'Google sign-in failed. Please try again.',
+  email_taken: 'This email address already belongs to an account linked to a different Google account.',
+  rate_limited: 'Too many attempts. Please wait a few minutes and try again.',
+  cookie_blocked: 'This browser did not keep the sign-in cookie. Allow cookies for this site and try again.',
+};
 
 export async function render(main) {
-  const signup = location.hash.replace(/^#\/?/, '').startsWith('signup');
-  if (getMe().signedIn) { location.hash = '#/'; return; }
+  const me = getMe();
+  if (me.signedIn && !me.guest) { location.hash = '#/'; return; }
+  const code = new URLSearchParams(location.hash.split('?')[1] || '').get('error');
+  let options = { google: false, guest: true };
+  try { options = await api.authOptions(); } catch { /* server not ready: Google stays hidden, guest shows its own error */ }
 
-  const name = signup ? field('Name (optional)', { type: 'text', name: 'name', autocomplete: 'name', maxlength: 60 }) : null;
-  const email = field('Email', { type: 'email', name: 'email', autocomplete: 'email', required: true, maxlength: 254 });
-  const password = field('Password', {
-    type: 'password', name: 'password', required: true, maxlength: 128,
-    autocomplete: signup ? 'new-password' : 'current-password', minlength: signup ? PASSWORD_MIN : null, 'aria-describedby': signup ? 'auth-password-hint' : null,
-  });
-  const error = h('div', { class: 'error-box', role: 'alert', hidden: true });
-  const submit = h('button', { class: 'btn primary', type: 'submit' }, signup ? 'Create account' : 'Sign in');
-
-  const form = h('form', { class: 'stack', novalidate: true },
-    name?.el, email.el, password.el,
-    signup ? h('p', { class: 'small muted', id: 'auth-password-hint' }, `At least ${PASSWORD_MIN} characters.`) : null,
-    error, submit);
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    error.hidden = true;
-    if (!email.input.value.trim() || !password.input.value) { showError('Enter your email and password.'); return; }
-    if (signup && password.input.value.length < PASSWORD_MIN) { showError(`Password must be at least ${PASSWORD_MIN} characters.`); return; }
-    submit.disabled = true;
-    try {
-      const body = { email: email.input.value.trim(), password: password.input.value };
-      const me = signup ? await api.signUp({ ...body, name: name.input.value.trim() }) : await api.signIn(body);
-      // The sign-in only exists in the session cookie. Ask the server whether it came back with this request; if the browser
-      // dropped it (cookies blocked, or a Secure cookie on plain http), staying "signed in" here would show the demo learner's data.
-      const check = await api.me();
-      if (!check.signedIn || check.learner.id !== me.learner.id) {
-        submit.disabled = false;
-        showError(`${signup ? 'Your account was created, but this' : 'Your password was accepted, but this'} browser did not keep the sign-in cookie, so you are still a guest. `
-          + 'Allow cookies for this site. If the app is served over plain http://, it must run with COOKIE_SECURE=0 or be served over HTTPS.');
-        return;
-      }
-      setMe(me); setViewDemo(false);
-      try { sessionStorage.removeItem('session'); } catch { /* ignore */ }
-      window.dispatchEvent(new CustomEvent('auth:changed', { detail: { message: signup ? `Welcome, ${me.learner.name}! Your learning path starts here.` : `Signed in as ${me.learner.name}` } }));
-      location.hash = '#/';
-    } catch (err) {
-      submit.disabled = false;
-      showError(err.message);
-    }
-  });
+  const error = h('div', { class: 'error-box', role: 'alert', hidden: !code }, code ? ERRORS[code] || ERRORS.google_failed : '');
   function showError(msg) { error.textContent = msg; error.hidden = false; }
 
+  // A plain navigation, not fetch: the server redirects to Google and Google redirects back to /api/auth/google/callback.
+  const google = options.google
+    ? h('a', { class: 'btn primary google', href: '/api/auth/google/start' }, h('span', { class: 'g-mark', 'aria-hidden': 'true' }, 'G'), 'Continue with Google')
+    : h('p', { class: 'small muted' }, 'Google sign-in is not set up on this server yet.');
+
+  let guest = null;
+  if (!me.signedIn) {
+    guest = h('button', { class: 'btn', type: 'button' }, 'Continue as guest');
+    guest.addEventListener('click', async () => {
+      error.hidden = true;
+      guest.disabled = true;
+      try {
+        const next = await api.startGuest();
+        // The guest account only exists in the session cookie. If the browser dropped it, this would still be the demo learner.
+        const check = await api.me();
+        if (!check.signedIn || check.learner.id !== next.learner.id) { guest.disabled = false; showError(ERRORS.cookie_blocked); return; }
+        setMe(next); setViewDemo(false);
+        try { sessionStorage.removeItem('session'); } catch { /* ignore */ }
+        window.dispatchEvent(new CustomEvent('auth:changed', { detail: { message: 'Guest account created. Your progress is saved in this browser.' } }));
+        location.hash = '#/';
+      } catch (err) {
+        guest.disabled = false;
+        showError(err.message);
+      }
+    });
+  }
+
   clear(main).append(h('section', { class: 'card auth-card stack', 'aria-labelledby': 'auth-h' },
-    h('nav', { class: 'auth-tabs', 'aria-label': 'Account' },
-      h('a', { href: '#/signin', 'aria-current': signup ? null : 'page' }, 'Sign in'),
-      h('a', { href: '#/signup', 'aria-current': signup ? 'page' : null }, 'Create account')),
-    h('h1', { id: 'auth-h' }, signup ? 'Start your own learning path' : 'Welcome back'),
-    h('p', { class: 'muted' }, signup
-      ? 'Your account gets its own learner memory: sessions, mistakes, mastery and preferences that belong to you alone.'
-      : 'Sign in to continue your learning path where you left off.'),
-    form,
-    h('p', { class: 'small muted' }, 'Just looking? ', h('a', { href: '#/' }, 'Continue as a guest with the demo learner'), '.')));
-  (name ?? email).input.focus();
+    h('h1', { id: 'auth-h' }, me.guest ? 'Keep your guest progress' : 'Start your own learning path'),
+    h('p', { class: 'muted' }, me.guest
+      ? 'Sign in with Google and your guest learning path moves into your Google account, so you can continue on any device. If you already have an account, you will sign in to it instead and the guest progress stays behind.'
+      : 'Your account gets its own learner memory: sessions, mistakes, mastery and preferences that belong to you alone. No password needed.'),
+    error,
+    google,
+    guest ? h('div', { class: 'stack' },
+      h('div', { class: 'auth-or', 'aria-hidden': 'true' }, 'or'),
+      guest,
+      h('p', { class: 'small muted' }, 'A guest account needs no sign-in. Its progress is kept for this browser only: clearing site data, using another browser or signing out of the guest account loses it.')) : null,
+    h('p', { class: 'small muted' }, 'Just looking? ', h('a', { href: '#/' }, me.guest ? 'Back to your guest path' : 'Browse the demo learner'), '.')));
+  (main.querySelector('.btn') ?? main).focus?.();
 }

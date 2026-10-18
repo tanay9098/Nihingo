@@ -24,7 +24,8 @@ const signUp = async (email, name = '') => {
 
 test('api: boots, serves the static frontend and consistent JSON envelopes', { skip }, async () => {
   env = await bootstrap(client);
-  const cfg = { ...config, falkor: { ...config.falkor, password: SECRET }, llm: { provider: 'openai', apiKey: 'KEY-should-never-leak', model: '' } };
+  // These tests still create accounts through the legacy email + password endpoints, which are off unless PASSWORD_AUTH=1.
+  const cfg = { ...config, falkor: { ...config.falkor, password: SECRET }, llm: { provider: 'openai', apiKey: 'KEY-should-never-leak', model: '' }, auth: { ...config.auth, passwordAuth: true } };
   const app = createApp({ get: async () => env, state: () => ({ ready: true }) }, cfg);
   server = app.listen(0); base = `http://127.0.0.1:${server.address().port}`;
   const page = await fetch(base + '/');
