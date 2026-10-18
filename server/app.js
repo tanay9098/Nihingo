@@ -1,6 +1,6 @@
 import express from 'express';
 import { config, appMode } from './config.js';
-import { LEARNERS, HttpError } from './services/learning.js';
+import { DEMO_LEARNER, HttpError } from './services/learning.js';
 import { PREF_RULES } from './agents/planner.js';
 import { seedDemo } from './seed/demo.js';
 
@@ -23,6 +23,27 @@ const int = (v, def, min, max) => {
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def;
 };
 
+const SESSION_COOKIE = 'nh_session';
+function readCookie(req, name) {
+  for (const part of (req.get('cookie') || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+  }
+  return '';
+}
+
+/** Fixed-window counter per key; returns false once `max` hits have been seen inside the window. */
+function rateLimiter({ max, windowMs }) {
+  const hits = new Map();
+  return (key) => {
+    const now = Date.now();
+    if (hits.size > 10_000) for (const [k, h] of hits) if (now - h.start > windowMs) hits.delete(k);
+    const h = hits.get(key);
+    if (!h || now - h.start > windowMs) { hits.set(key, { start: now, n: 1 }); return true; }
+    return ++h.n <= max;
+  };
+}
+
 /**
  * @param {{ get: () => Promise<{service:any, catalog:any, memory:any, client:any, rag:any}>, state: () => object }} ctx
  */
@@ -37,8 +58,20 @@ export function createApp(ctx, cfg = config) {
   });
   app.use(express.json({ limit: '20kb' }));
 
+  const cookieOpts = { httpOnly: true, sameSite: 'lax', secure: cfg.auth.cookieSecure, path: '/' };
+  const authAttempt = rateLimiter({ max: 20, windowMs: 10 * 60 * 1000 });
+
   const api = express.Router();
   api.use((req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
+  // The session cookie is SameSite=Lax; also refuse writes that a browser says came from another site.
+  api.use((req, res, next) => {
+    const origin = req.get('origin');
+    if (origin && !['GET', 'HEAD'].includes(req.method)) {
+      let host = null; try { host = new URL(origin).host; } catch { /* malformed */ }
+      if (host !== req.get('host')) throw new HttpError(403, 'Cross-site requests are not allowed', 'cross_origin');
+    }
+    next();
+  });
 
   // The health endpoint works even when the database is down.
   api.get('/health', asyncH(async (req, res) => {
@@ -51,12 +84,53 @@ export function createApp(ctx, cfg = config) {
     ok(res, { status: up ? 'ok' : 'degraded', mode: appMode(cfg), falkordb: { ok: up, latencyMs, graph: cfg.falkor.graph }, counts, graphrag: { sidecarConfigured: !!cfg.ragUrl }, bootstrap: st.bootstrap ?? null });
   }));
 
+  // Who is asking. A signed-in account always works on its own learner (from the session cookie, never from the
+  // request); `X-Learner-Id` can only switch to the demo learner. Without an account the visitor is a guest on the demo learner.
   api.use(asyncH(async (req, res, next) => {
     try { req.s = await ctx.get(); } catch (e) { throw new HttpError(503, 'The graph database is not reachable yet. Please retry in a moment.', 'db_unavailable'); }
-    const lid = req.get('x-learner-id') || 'learner:demo';
-    if (!LEARNERS[lid]) throw new HttpError(400, 'Unknown learner profile', 'unknown_learner');
-    req.learnerId = lid;
+    req.token = readCookie(req, SESSION_COOKIE);
+    req.auth = req.token ? await req.s.auth.resolve(req.token) : null;
+    if (req.token && !req.auth) {
+      res.clearCookie(SESSION_COOKIE, cookieOpts);
+      if (!req.path.startsWith('/auth/')) throw new HttpError(401, 'Your sign-in has expired. Please sign in again.', 'session_expired');
+    }
+    const asked = req.get('x-learner-id');
+    if (asked && asked !== DEMO_LEARNER.id && asked !== req.auth?.learnerId) {
+      throw req.auth ? new HttpError(403, 'That learner profile belongs to another account', 'forbidden') : new HttpError(401, 'Sign in to use your own learner profile', 'auth_required');
+    }
+    req.learnerId = asked || req.auth?.learnerId || DEMO_LEARNER.id;
     next();
+  }));
+
+  // ----- accounts
+  const meView = async (req, auth) => {
+    if (!auth) return { signedIn: false, learner: { id: DEMO_LEARNER.id, name: DEMO_LEARNER.name } };
+    const l = await req.s.memory.getLearner(auth.learnerId);
+    return { signedIn: true, email: auth.email, learner: { id: auth.learnerId, name: l?.name ?? '' } };
+  };
+  const limitAuth = (req) => { if (!authAttempt(req.ip)) throw new HttpError(429, 'Too many attempts. Please wait a few minutes and try again.', 'rate_limited'); };
+  const signedIn = async (req, res, r, status) => {
+    if (req.token) await req.s.auth.signOut(req.token);
+    res.cookie(SESSION_COOKIE, r.token, { ...cookieOpts, expires: new Date(r.expiresAt) });
+    ok(res, await meView(req, r.auth), status);
+  };
+  api.get('/auth/me', asyncH(async (req, res) => ok(res, await meView(req, req.auth))));
+  api.post('/auth/signup', asyncH(async (req, res) => {
+    limitAuth(req);
+    const b = req.body ?? {};
+    await signedIn(req, res, await req.s.auth.signUp({
+      email: str(b.email, 'email', { max: 254 }), password: str(b.password, 'password', { max: 128 }), name: str(b.name, 'name', { max: 60, required: false }),
+    }), 201);
+  }));
+  api.post('/auth/signin', asyncH(async (req, res) => {
+    limitAuth(req);
+    const b = req.body ?? {};
+    await signedIn(req, res, await req.s.auth.signIn({ email: str(b.email, 'email', { max: 254 }), password: str(b.password, 'password', { max: 128 }) }));
+  }));
+  api.post('/auth/signout', asyncH(async (req, res) => {
+    if (req.token) await req.s.auth.signOut(req.token);
+    res.clearCookie(SESSION_COOKIE, cookieOpts);
+    ok(res, await meView(req, null));
   }));
 
   api.get('/dashboard', asyncH(async (req, res) => ok(res, await req.s.service.dashboard(req.learnerId))));
@@ -99,7 +173,9 @@ export function createApp(ctx, cfg = config) {
     const logId = id(req.body.logId || `ll:${req.learnerId}:${lessonId}:${Date.now()}`, 'logId');
     const lessons = await req.s.catalog.listLessons(req.learnerId);
     if (!lessons.find((l) => l.id === lessonId)) throw new HttpError(404, 'Lesson not found', 'not_found');
-    await req.s.memory.logListening({ id: logId, learnerId: req.learnerId, lessonId, rating, note, at: Date.now(), isDemo: false });
+    if (!(await req.s.memory.logListening({ id: logId, learnerId: req.learnerId, lessonId, rating, note, at: Date.now(), isDemo: false }))) {
+      throw new HttpError(409, 'logId is already in use', 'conflict');
+    }
     await req.s.memory.bumpMemoryVersion(req.learnerId);
     ok(res, { logged: true, logId });
   }));
@@ -114,7 +190,7 @@ export function createApp(ctx, cfg = config) {
   api.get('/learner/sessions', asyncH(async (req, res) => ok(res, await req.s.memory.recentSessions(req.learnerId, int(req.query.limit, 10, 1, 50)))));
   api.post('/learner/reset', asyncH(async (req, res) => {
     if (req.body.confirm !== true) throw new HttpError(400, 'Send {"confirm": true} to reset learning progress', 'confirm_required');
-    if (req.learnerId === 'learner:demo') {
+    if (req.learnerId === DEMO_LEARNER.id) {
       await seedDemo({ service: req.s.service, memory: req.s.memory });
       return ok(res, { reset: true, reseeded: true });
     }
@@ -161,7 +237,7 @@ export function createApp(ctx, cfg = config) {
   }));
   api.get('/graph/neighborhood', asyncH(async (req, res) => {
     const center = id(req.query.center || req.learnerId, 'center');
-    ok(res, await req.s.service.neighborhood(center, { depth: int(req.query.depth, 1, 1, 2), limit: int(req.query.limit, 40, 5, 80), all: req.query.all === '1' }));
+    ok(res, await req.s.service.neighborhood(center, { depth: int(req.query.depth, 1, 1, 2), limit: int(req.query.limit, 40, 5, 80), all: req.query.all === '1', viewer: req.learnerId }));
   }));
 
   // ----- feedback (procedural memory) and tutor Q&A

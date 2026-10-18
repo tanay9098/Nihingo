@@ -1,9 +1,10 @@
-# Demo script (≈ 5 minutes) — “Memory that changes the next lesson”
+# Demo script (≈ 6 minutes) — “Memory that changes the next lesson”
 
 Everything below was run against a real FalkorDB; the numbers are what the app produced. The exact same flow runs headlessly with
 `npm run demo:flow` (prints every recommendation, evidence line and agent handoff).
 
-**Before you start:** `docker compose up --build` (or `npm start`), open <http://localhost:3002>, keep the profile on **Demo learner (Aiko)**.
+**Before you start:** `docker compose up --build` (or `npm start`), open <http://localhost:3002> **without signing in**: guests always see the
+demo learner Aiko (the blue banner says so). If you are signed in, pick **Demo learner (Aiko)** in the top bar instead.
 If someone already clicked around: **Memory → Reset the demo → Restore seeded demo**.
 
 ## 0. Setup talk track (20 s)
@@ -54,13 +55,23 @@ Remove or change it any time; inferred preferences can be deleted with “That's
 ## 7. Listening (30 s)
 **Listening** → recommended lesson with its reason; “Watch” plays through YouTube's official embed, with a direct YouTube link as fallback. Levels shown are only those stated in the
 video titles (*N5 (per title)*). Rate comprehension 1–5 with a note → stored as `ListeningLog` in episodic memory. A rating of 1–2 on a fresh profile makes the Planner recommend
-revising concepts that share the lesson's topic (switch to **My profile** to show it: rate a food/café lesson 1 → *Topic revision*).
-**My profile** also shows the beginner view: the “Start here” note, Step 1 *Hiragana* as “You are here”, and a first session of あ, い, う.
+revising concepts that share the lesson's topic (show it on a fresh account, see step 8: rate a food/café lesson 1 → *Topic revision*).
 
-## 8. Reset
-**Memory → Restore seeded demo** returns Aiko to the starting state so the demo can be repeated.
+## 8. A learner of your own (45 s)
+1. **Create account** (top bar, or the link in the demo banner) → name, email, password of at least 8 characters. You land on **Today** signed in;
+   the top bar shows **My path (*name*)** and **Sign out**, and the demo banner is gone.
+2. A new account starts its **own, empty learning path**: the “Start here” note, Step 1 *Hiragana* as “You are here”, and a first session of あ, い, う.
+   None of Aiko's history appears — each account owns its learner memory, and the server takes the learner from the sign-in, never from the browser.
+3. Optional: the top-bar switcher **Demo learner (Aiko)** ↔ **My path** shows both side by side; **Sign out** returns to the guest demo view,
+   and signing back in resumes exactly where the account left off. A second account (e.g. in a private window) sees only its own path.
+
+## 9. Reset
+Switch the top bar back to **Demo learner (Aiko)** (or **Sign out**), then **Memory → Restore seeded demo** returns Aiko to the starting state so the demo can be repeated. On your own account the same card reads
+**Delete my progress**: it empties that learning path but keeps the account.
 
 ### If something goes wrong
 * The dashboard says “The graph database is starting up”: wait for FalkorDB's health check (≈ 10 s) and press *Try again*.
 * The YouTube player stays black (offline / blocked): use the “Open it on YouTube” link; everything else works offline.
+* “Your sign-in has expired”: the session lasted longer than `SESSION_TTL_DAYS` (default 30) or you signed out in another tab — sign in again.
+  “…did not keep the sign-in cookie”: cookies are blocked, or `COOKIE_SECURE=1` while the page is served over plain `http://`; leave it at `0` for a local demo.
 * Questions differ from the list above: the Examiner is deterministic *for a given graph state*; if the demo learner was used before, restore the seeded demo first.

@@ -41,6 +41,62 @@ export class MemoryStore {
     await this.c.query('MATCH (l:Learner {id: $id}) SET l.memoryVersion = 0', { id });
   }
 
+  /** Removes a learner and everything recorded for it. */
+  async deleteLearner(id) {
+    await this.resetLearner(id);
+    await this.c.query('MATCH (l:Learner {id: $id}) DETACH DELETE l', { id });
+  }
+
+  // ---------- accounts / sign-in sessions ----------
+  // Account and AuthSession point at their learner through `profileId`, not `learnerId`: resetting a learner deletes every
+  // node whose learnerId matches, and that must never take the account or its sign-ins with it.
+
+  /** Creates the account and its own new Learner in one query. Returns false if the email is already registered. */
+  async createAccount({ id, email, passwordHash, profileId, name, now }) {
+    const r = await this.c.query(
+      `OPTIONAL MATCH (x:Account {email: $email})
+       WITH x WHERE x IS NULL
+       CREATE (a:Account {id: $id, email: $email, passwordHash: $passwordHash, profileId: $profileId, createdAt: $now})
+       CREATE (l:Learner {id: $profileId, name: $name, isDemo: false, createdAt: $now, memoryVersion: 0})
+       RETURN a.id AS id`,
+      { id, email, passwordHash, profileId, name, now },
+    );
+    return r.length === 1;
+  }
+
+  async getAccountByEmail(email) {
+    const r = await this.c.query(
+      'MATCH (a:Account {email: $email}) RETURN a.id AS id, a.email AS email, a.passwordHash AS passwordHash, a.profileId AS profileId',
+      { email },
+    );
+    return r[0] ?? null;
+  }
+
+  async createAuthSession({ id, accountId, profileId, createdAt, expiresAt }) {
+    await this.c.query(
+      'CREATE (:AuthSession {id: $id, accountId: $accountId, profileId: $profileId, createdAt: $createdAt, expiresAt: $expiresAt})',
+      { id, accountId, profileId, createdAt, expiresAt },
+    );
+  }
+
+  async getAuthSession(id) {
+    const r = await this.c.query(
+      `MATCH (s:AuthSession {id: $id}) OPTIONAL MATCH (a:Account {id: s.accountId})
+       RETURN s.id AS id, s.accountId AS accountId, s.profileId AS profileId, s.expiresAt AS expiresAt, a.email AS email`,
+      { id },
+    );
+    return r[0] ?? null;
+  }
+
+  async deleteAuthSession(id) {
+    await this.c.query('MATCH (s:AuthSession {id: $id}) DELETE s', { id });
+  }
+
+  async pruneAuthSessions(now) {
+    const r = await this.c.query('MATCH (s:AuthSession) WHERE s.expiresAt <= $now DELETE s RETURN count(s) AS n', { now });
+    return r[0]?.n ?? 0;
+  }
+
   // ---------- sessions / attempts (episodic) ----------
   async createSession(s) {
     await this.c.query(
@@ -354,15 +410,20 @@ export class MemoryStore {
   }
 
   // ---------- listening ----------
+  /** Idempotent per log id. Returns false (and writes nothing) if the id already belongs to another learner. */
   async logListening({ id, learnerId, lessonId, rating, note, at, isDemo }) {
-    await this.c.query(
+    const r = await this.c.query(
       `MATCH (l:Learner {id: $learnerId}), (le:Lesson {id: $lessonId})
+       OPTIONAL MATCH (prev:ListeningLog {id: $id})
+       WITH l, le, prev WHERE prev IS NULL OR prev.learnerId = $learnerId
        MERGE (g:ListeningLog {id: $id})
        ON CREATE SET g.learnerId = $learnerId, g.at = $at, g.rating = $rating, g.note = $note, g.isDemo = $isDemo
        MERGE (l)-[:WATCHED]->(g)
-       MERGE (g)-[:OF]->(le)`,
+       MERGE (g)-[:OF]->(le)
+       RETURN g.id AS id`,
       { id, learnerId, lessonId, rating, note: note ?? '', at, isDemo: !!isDemo },
     );
+    return r.length > 0;
   }
 
   async setSaved(learnerId, lessonId, saved) {
@@ -513,12 +574,12 @@ export class MemoryStore {
   async events(learnerId, { limit = 40, sessionId = '' } = {}) {
     const rows = sessionId
       ? await this.c.read(
-        `MATCH (:LearningSession {id: $sid})-[:LOGGED]->(e:AgentEvent)
+        `MATCH (:LearningSession {id: $sid})-[:LOGGED]->(e:AgentEvent) WHERE e.learnerId = $lid
          OPTIONAL MATCH (p:AgentEvent)-[:HANDED_OFF_TO]->(e)
          RETURN e.id AS id, e.agent AS agent, e.action AS action, e.retrieved AS retrieved, e.changed AS changed,
                 e.output AS output, e.at AS at, e.seq AS seq, e.sessionId AS sessionId, e.isDemo AS isDemo, p.id AS handoffFrom
          ORDER BY e.at, e.seq LIMIT $limit`,
-        { sid: sessionId, limit },
+        { sid: sessionId, lid: learnerId, limit },
       )
       : await this.c.read(
         `MATCH (:Learner {id: $lid})-[:HAS_EVENT]->(e:AgentEvent)
@@ -534,15 +595,18 @@ export class MemoryStore {
   }
 
   // ---------- bounded graph exploration ----------
-  async neighborhood(centerId, { limit = 40, exclude = [] } = {}) {
+  /** Neighbours of one node as seen by `viewer`: other learners and anything they own are left out. */
+  async neighborhood(centerId, { limit = 40, exclude = [], viewer } = {}) {
     const rows = await this.c.read(
       `MATCH (c {id: $id})-[r]-(n)
        WHERE NOT any(l IN labels(n) WHERE l IN $exclude)
+         AND NOT (n:Learner AND n.id <> $viewer)
+         AND (n.learnerId IS NULL OR n.learnerId = $viewer)
        RETURN c AS center, labels(c) AS clabels, type(r) AS rel, startNode(r).id = $id AS outgoing,
               n.id AS id, labels(n) AS labels, coalesce(n.name, n.word, n.char, n.title, n.key, n.prompt, n.activity, n.id) AS name,
               n.status AS status, n.mastery AS mastery, r.mastery AS rMastery, r.status AS rStatus
        LIMIT $limit`,
-      { id: centerId, limit, exclude },
+      { id: centerId, limit, exclude, viewer },
     );
     return rows;
   }

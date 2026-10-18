@@ -30,6 +30,11 @@ export const config = {
     baseUrl: env.LLM_BASE_URL || '',
   },
   ragUrl: (env.GRAPHRAG_URL || '').trim(),
+  auth: {
+    sessionTtlMs: (Number(env.SESSION_TTL_DAYS) || 30) * 24 * 60 * 60 * 1000,
+    // Send the session cookie only over HTTPS. Turn on whenever the app is served over HTTPS.
+    cookieSecure: env.COOKIE_SECURE === '1',
+  },
 };
 
 // "ai" only when a provider, key and model are all configured; otherwise deterministic demo mode.

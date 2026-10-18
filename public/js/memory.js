@@ -1,4 +1,4 @@
-import { api, getLearner } from './api.js';
+import { api, isDemoView } from './api.js';
 import { h, clear, ago, plural, toast, demoBadge, statusBadge } from './utils.js';
 import { timeline } from './learning.js';
 
@@ -85,9 +85,9 @@ export async function render(main, { showError, rerender }) {
   ask.append(h('div', { class: 'answer-row' }, q, h('button', { class: 'btn primary', onclick: go }, 'Ask')), out);
 
   // --- reset
-  const isDemo = getLearner() === 'learner:demo';
+  const isDemo = isDemoView();
   const reset = h('div', { class: 'card stack' }, h('h2', {}, isDemo ? 'Reset the demo' : 'Reset my progress'),
-    h('p', { class: 'small muted' }, isDemo ? 'Deletes the live activity recorded for the demo learner and restores the seeded demo history, so the two-session demo can be repeated.' : 'Permanently deletes all sessions, attempts, mistakes, mastery estimates, preferences and agent history for your profile.'),
+    h('p', { class: 'small muted' }, isDemo ? 'Deletes the live activity recorded for the demo learner and restores the seeded demo history, so the two-session demo can be repeated.' : 'Permanently deletes all sessions, attempts, mistakes, mastery estimates, preferences and agent history for your learning path. Your account stays.'),
     h('button', { class: 'btn danger', onclick: async (e) => {
       if (!confirm(isDemo ? 'Restore the demo learner to its seeded state?' : 'Delete all of your learning progress? This cannot be undone.')) return;
       const b = e.currentTarget; b.disabled = true;

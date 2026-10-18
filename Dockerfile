@@ -11,6 +11,8 @@ COPY public ./public
 COPY resources ./resources
 COPY docs ./docs
 ENV NODE_ENV=production PORT=3002
+# COOKIE_SECURE stays off unless set: the image is also opened over plain http (localhost or a LAN address), where a
+# Secure cookie would make sign-in fail. Set COOKIE_SECURE=1 whenever the app is served over HTTPS.
 EXPOSE 3002
 USER node
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 \

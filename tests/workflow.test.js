@@ -6,7 +6,7 @@ import { appMode } from '../server/config.js';
 const client = await tryConnect();
 const skip = client ? false : 'FalkorDB is not reachable (set FALKORDB_HOST/FALKORDB_PORT)';
 const L = 'learner:demo';
-let env, s1, firstRec;
+let env, s1, firstRec, ME; // ME: a learner with its own account
 
 const wrongAnswer = async (ex) => {
   const full = await env.memory.getExercise(ex.id);
@@ -18,6 +18,7 @@ const count = async (q, p = {}) => (await client.query(q, p))[0].n;
 test('demo mode works without any LLM key', { skip }, async () => {
   assert.equal(appMode(), 'demo');
   env = await bootstrap(client);
+  ME = (await env.auth.signUp({ email: 'me@example.com', password: 'correct horse battery' })).auth.learnerId;
   const d = await env.service.dashboard(L);
   assert.equal(d.mode, 'demo');
   assert.equal(d.plan.explanation.by, 'rules + graph evidence');
@@ -40,7 +41,7 @@ test('seeded history is flagged as demo and produces a graph-derived recommendat
   // the learner has not made any real (non-demo) attempts yet
   assert.equal(await count('MATCH (a:Attempt {learnerId: $l}) WHERE a.isDemo = false RETURN count(a) AS n', { l: L }), 0);
   // a fresh profile has no history, so no history-based message may be shown
-  const me = await env.service.dashboard('learner:me');
+  const me = await env.service.dashboard(ME);
   assert.equal(me.plan.recommendation.rule === undefined ? me.plan.recommendation.evidence.rule : me.plan.recommendation.evidence.rule, 'first-session');
   assert.equal(me.recentSessions.length, 0); assert.equal(me.recentMistakes.length, 0);
   assert.doesNotMatch(me.plan.explanation.text, /incorrectly/);
@@ -98,7 +99,7 @@ test('attempts are persisted, update memory, and are idempotent', { skip }, asyn
 
 test('input rules: foreign exercises, other learners and closed sessions are rejected', { skip }, async () => {
   await assert.rejects(env.service.answer({ learnerId: L, sessionId: 'test-s1', exerciseId: 'ex:gs-wa-1', attemptId: 'x', answer: 'は' }), /not part of this session/);
-  await assert.rejects(env.service.answer({ learnerId: 'learner:me', sessionId: 'test-s1', exerciseId: 'ex:gs-ni-1', answer: 'に' }), /Session not found/);
+  await assert.rejects(env.service.answer({ learnerId: ME, sessionId: 'test-s1', exerciseId: 'ex:gs-ni-1', answer: 'に' }), /Session not found/);
   await assert.rejects(env.service.startSession('learner:nobody'), /Unknown learner/);
 });
 
@@ -155,25 +156,25 @@ test('procedural memory changes behaviour: explicit preference, inference and re
 });
 
 test('listening: history, notes and ratings persist; low ratings drive recommendations; saves toggle', { skip }, async () => {
-  const lessons = await env.catalog.listLessons('learner:me');
+  const lessons = await env.catalog.listLessons(ME);
   assert.equal(lessons.length, 15);
   assert.ok(lessons.every((l) => l.url.startsWith('https://www.youtube.com/watch?v=') && l.difficulty !== undefined));
   const cafe = lessons.find((l) => l.topics.includes('food'));
-  await env.memory.logListening({ id: 'll-1', learnerId: 'learner:me', lessonId: cafe.id, rating: 1, note: 'too fast', at: Date.now() });
-  await env.memory.logListening({ id: 'll-1', learnerId: 'learner:me', lessonId: cafe.id, rating: 1, note: 'too fast', at: Date.now() });
+  await env.memory.logListening({ id: 'll-1', learnerId: ME, lessonId: cafe.id, rating: 1, note: 'too fast', at: Date.now() });
+  await env.memory.logListening({ id: 'll-1', learnerId: ME, lessonId: cafe.id, rating: 1, note: 'too fast', at: Date.now() });
   assert.equal(await count("MATCH (g:ListeningLog {id: 'll-1'}) RETURN count(g) AS n"), 1);
-  await env.memory.setSaved('learner:me', cafe.id, true); await env.memory.setSaved('learner:me', cafe.id, true);
-  assert.equal((await env.catalog.listLessons('learner:me')).find((l) => l.id === cafe.id).saved, true);
-  await env.memory.bumpMemoryVersion('learner:me');
-  const rec = (await env.service.tutor.brief({ learnerId: 'learner:me' })).recommendation;
+  await env.memory.setSaved(ME, cafe.id, true); await env.memory.setSaved(ME, cafe.id, true);
+  assert.equal((await env.catalog.listLessons(ME)).find((l) => l.id === cafe.id).saved, true);
+  await env.memory.bumpMemoryVersion(ME);
+  const rec = (await env.service.tutor.brief({ learnerId: ME })).recommendation;
   assert.equal(rec.activity, 'topic_revision');
   assert.match(rec.reason, /1\/5/);
-  await env.memory.setSaved('learner:me', cafe.id, false);
-  assert.equal((await env.catalog.listLessons('learner:me')).find((l) => l.id === cafe.id).saved, false);
+  await env.memory.setSaved(ME, cafe.id, false);
+  assert.equal((await env.catalog.listLessons(ME)).find((l) => l.id === cafe.id).saved, false);
 });
 
 test('bounded graph neighbourhood, library search and grounded Q&A', { skip }, async () => {
-  const g = await env.service.neighborhood(L, { depth: 2, limit: 12 });
+  const g = await env.service.neighborhood(L, { depth: 2, limit: 12, viewer: L });
   assert.ok(g.nodes.length <= 12);
   assert.ok(g.edges.some((e) => e.type === 'STUDIES' && e.status));
   const s = await env.catalog.search({ q: 'mizu' });          // romaji
@@ -191,9 +192,10 @@ test('bounded graph neighbourhood, library search and grounded Q&A', { skip }, a
 });
 
 test('reset: progress deletion and demo re-seeding are repeatable', { skip }, async () => {
-  await env.service.resetLearner('learner:me');
-  assert.equal(await count("MATCH (n) WHERE n.learnerId = 'learner:me' RETURN count(n) AS n"), 0);
-  assert.equal(await count("MATCH (:Learner {id: 'learner:me'})-[:STUDIES]->() RETURN count(*) AS n"), 0);
+  await env.service.resetLearner(ME);
+  assert.equal(await count('MATCH (n) WHERE n.learnerId = $me RETURN count(n) AS n', { me: ME }), 0);
+  assert.equal(await count('MATCH (:Learner {id: $me})-[:STUDIES]->() RETURN count(*) AS n', { me: ME }), 0);
+  assert.equal((await env.memory.getAccountByEmail('me@example.com')).profileId, ME, 'resetting progress keeps the account');
   const { seedDemo } = await import('../server/seed/demo.js');
   await seedDemo({ service: env.service, memory: env.memory });
   const d = await env.service.dashboard(L);
