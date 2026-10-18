@@ -55,6 +55,15 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 
 Newest first. One entry per change: date · summary · files · how it was tested.
 
+* **2026-10-18** · Readable Library item popup in dark mode. Cause: `<dialog>` gets the browser's default text colour (`CanvasText`, black)
+  instead of inheriting the theme, and the app never declared `color-scheme`, so values in the item dialog were near-black on the dark surface
+  (~1.3:1 contrast). Fix (CSS only): `dialog { color: var(--ink); background: var(--surface); }`, `color-scheme: light dark` on `:root`
+  (`light` when `data-theme="light"`), a dimmed `::backdrop`, a border/shadow and max width 760 px for `dialog.detail`, bold labels, the example
+  sentence box lighter (`--example-bg` #342e26 in dark) with an indigo left edge, and tag text in `--ink`. Light mode looks the same apart from the
+  dimmed backdrop and the example box's left edge. Files: `public/css/styles.css`, `public/css/components.css`. Tested: `FALKORDB_PORT=6380 npm test`
+  (69/69 pass, none skipped) against FalkorDB (falkordblite module); the item dialog checked in Chromium (Playwright) in dark and light at 1280 px
+  and dark at 390 px: value text computes to #f2ece2 in dark, no console errors, no horizontal scroll.
+
 * **2026-10-18** · Learning map: summary line and info card. My progress now shows one plain sentence above the map (*You’re practising
   3 letters (kana). い needs the most practice (about 30% known).*; `mapSummary` in `utils.js`, from the memory view's concepts: struggling items
   first, then lowest mastery). Clicking a map item no longer jumps straight to re-centring: it highlights the item and opens a card below the map

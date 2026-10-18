@@ -79,7 +79,13 @@ textarea { width: 100%; min-height: 72px; }
 .item:hover { border-color: var(--indigo); }
 .item .big { font-family: var(--jp); font-size: 1.5rem; }
 .detail dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
-.detail dt { color: var(--ink-2); } .detail dd { margin: 0; }
+.detail dt { color: var(--ink-2); font-weight: 600; } .detail dd { margin: 0; }
+/* dialogs: the browser default text colour (CanvasText) ignores the app theme, so set it explicitly */
+dialog { color: var(--ink); background: var(--surface); }
+dialog.detail { width: min(760px, calc(100vw - 2 * var(--gutter))); max-height: calc(100vh - 48px); border: 1px solid var(--dialog-line, var(--line)); box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+dialog::backdrop { background: rgba(0,0,0,.6); }
+.detail .card.flat { background: var(--example-bg, var(--surface-2)); border-left: 3px solid var(--indigo); }
+.detail .badge:not(.src-original) { color: var(--ink); }
 .glyph { font-family: var(--jp); font-size: 4rem; line-height: 1.1; }
 
 /* listening */
