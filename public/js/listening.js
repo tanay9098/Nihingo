@@ -23,7 +23,7 @@ export async function render(main, { showError }) {
   const recCard = rec ? h('div', { class: 'card hero stack' }, h('h2', {}, 'Recommended for you'), h('p', {}, h('strong', {}, rec.focusName)), h('p', { class: 'muted' }, rec.reason), whyBox(rec),
     h('button', { class: 'btn primary', onclick: () => openPlayer(lessons.find((l) => l.id === rec.focusId)) }, 'Watch now')) : null;
 
-  const grid = h('div', { class: 'videos' }, lessons.length ? lessons.map(card) : h('div', { class: 'empty' }, 'No listening lessons are indexed. Run npm run ingest.'));
+  const grid = h('div', { class: 'videos' }, lessons.length ? lessons.map(card) : h('div', { class: 'empty' }, 'No listening lessons are indexed.'));
   const logs = h('div', { class: 'card' }, h('h2', {}, 'Your listening history'),
     data.logs.length ? h('ul', { class: 'list' }, data.logs.map((l) => h('li', {}, h('span', {}, h('strong', {}, l.title), ' ', demoBadge(l.isDemo), l.note ? h('div', { class: 'small muted' }, l.note) : null), h('span', { class: 'small muted' }, `${'★'.repeat(l.rating)}${'☆'.repeat(5 - l.rating)} · ${ago(l.at)}`))))
       : h('div', { class: 'empty' }, 'No listening logged yet. After watching, rate how much you understood.'));

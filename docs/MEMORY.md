@@ -55,6 +55,12 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 
 Newest first. One entry per change: date · summary · files · how it was tested.
 
+* **2026-10-18** · Removed the developer hint "npm run ingest" from the four learner-facing messages (empty library list, empty listening page,
+  kanji detail without stroke-order file, stroke-order tab without files); visitors on the hosted app can't run it, and the empty library list is
+  usually caused by an active topic filter, not missing data. Topic filter behaviour unchanged. Files: `public/js/library.js`, `public/js/listening.js`.
+  Tested: `FALKORDB_PORT=6380 npm test` (61/61 pass, none skipped) against FalkorDB in Docker; checked `#/library?tab=vocabulary&topic=hiragana` in
+  headless Chromium (shows "Nothing here yet.", no console errors).
+
 * **2026-10-18** · Sign in with Google (no password) + guest accounts; boot no longer gives up on the database. **Fix**: on Render the app had
   `FALKORDB_HOST=localhost`, so `boot()` failed after 60 s and every `/api` call answered 503 forever; `bootLoop()` now retries with 5–60 s backoff and logs a hint
   when the host is localhost on a hosting platform. **Google**: `/api/auth/google/start|callback` (authorization-code + PKCE + state + nonce, `fetch` only, no new

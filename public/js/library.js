@@ -42,7 +42,7 @@ export async function render(main, { showError }) {
       if (state.tab === 'exercises') return exercisesTab(results);
       const kind = ['vocabulary', 'kana', 'kanji', 'grammar'].includes(state.tab) ? state.tab : '';
       const r = await api.library({ q: state.q, kind, topic: state.topic, limit: 24, offset: state.offset });
-      results.replaceChildren(r.items.length ? h('div', { class: 'items' }, r.items.map((it) => itemCard(it, openItem))) : h('div', { class: 'empty' }, state.q ? `No matches for “${state.q}”. Try kana, romaji or an English meaning.` : 'Nothing here yet — run `npm run ingest`.'),
+      results.replaceChildren(r.items.length ? h('div', { class: 'items' }, r.items.map((it) => itemCard(it, openItem))) : h('div', { class: 'empty' }, state.q ? `No matches for “${state.q}”. Try kana, romaji or an English meaning.` : 'Nothing here yet.'),
         h('div', { class: 'row' },
           state.offset ? h('button', { class: 'btn small', onclick: () => { state.offset = Math.max(0, state.offset - 24); load(); } }, '← Previous') : null,
           r.hasMore ? h('button', { class: 'btn small', onclick: () => { state.offset += 24; load(); } }, 'More →') : null));
@@ -91,7 +91,7 @@ function detail(dlg, it, open) {
     it.example ? h('div', { class: 'card flat' }, h('div', { class: 'jp', lang: 'ja' }, it.example), it.exampleReading ? h('div', { class: 'small muted', lang: 'ja' }, it.exampleReading) : null, h('div', {}, it.exampleMeaning)) : null,
     it.kind === 'kanji' || (it.kind === 'kana' && refs.length) ? h('div', { class: 'card flat' }, refs.length
       ? [h('strong', {}, 'Stroke-order reference material'), h('ul', { class: 'list' }, refs.map((r) => h('li', {}, `${r.title}${r.page ? ` · page ${r.page}` : ''}`, h('span', { class: 'small muted' }, `${r.source}`))))]
-      : h('p', { class: 'small' }, 'No stroke-order reference is installed for this kanji. Only the stroke count above is available (from the source data). Drop a stroke-order PDF or image into resources/local/ and run npm run ingest to link it here.')) : null,
+      : h('p', { class: 'small' }, 'No stroke-order reference is installed for this kanji. Only the stroke count above is available (from the source data). Drop a stroke-order PDF or image into resources/local/ to link it here.')) : null,
     it.topics.length ? h('div', { class: 'chips' }, it.topics.map((t) => h('span', { class: 'badge' }, t))) : null,
     it.learnerState ? h('p', { class: 'small' }, 'Your memory: ', statusBadge(it.learnerState.status), ` mastery ${it.learnerState.mastery} · ${plural(it.learnerState.attempts, 'attempt')}`) : h('p', { class: 'small muted' }, 'Not practised yet by this learner.'),
     it.related.length ? h('div', {}, h('strong', {}, 'Related in the graph'), h('div', { class: 'chips' }, it.related.map((r) => h('button', { class: 'btn small', onclick: () => open(r.id) }, `${r.rel === 'APPEARS_IN' ? (r.outgoing ? 'appears in' : 'contains') : r.rel.toLowerCase().replace('_', ' ')}: ${r.name}`)))) : null,
@@ -107,7 +107,7 @@ async function strokeTab(el, open) {
   el.replaceChildren(h('div', { class: 'stack' },
     h('div', { class: 'card flat' }, h('strong', {}, 'Stroke-order reference'),
       refs.length ? h('p', {}, `Stroke-order pages from your reference files are linked for ${linked(kanji.items)} of ${kanji.items.length} kanji and ${linked(kana.items)} of ${kana.items.length} kana (matched by page layout, text or file name). Open an item to see the file and page; the strokes themselves are not parsed or animated.`)
-        : h('p', {}, 'No stroke-order PDFs or images are installed, so this app shows stroke counts only and does not claim to animate or verify stroke order. Add files under resources/local/ (for example 日.png or a stroke-order PDF) and run npm run ingest.')),
+        : h('p', {}, 'No stroke-order PDFs or images are installed, so this app shows stroke counts only and does not claim to animate or verify stroke order. Add files under resources/local/ (for example 日.png or a stroke-order PDF).')),
     h('h3', {}, 'Kanji'),
     h('div', { class: 'items' }, kanji.items.map((k) => card(k, k.strokes > 0 ? `${k.strokes} strokes` : 'stroke count unknown'))),
     h('h3', {}, 'Hiragana & katakana'),
