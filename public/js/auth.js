@@ -36,6 +36,15 @@ export async function render(main) {
     try {
       const body = { email: email.input.value.trim(), password: password.input.value };
       const me = signup ? await api.signUp({ ...body, name: name.input.value.trim() }) : await api.signIn(body);
+      // The sign-in only exists in the session cookie. Ask the server whether it came back with this request; if the browser
+      // dropped it (cookies blocked, or a Secure cookie on plain http), staying "signed in" here would show the demo learner's data.
+      const check = await api.me();
+      if (!check.signedIn || check.learner.id !== me.learner.id) {
+        submit.disabled = false;
+        showError(`${signup ? 'Your account was created, but this' : 'Your password was accepted, but this'} browser did not keep the sign-in cookie, so you are still a guest. `
+          + 'Allow cookies for this site. If the app is served over plain http://, it must run with COOKIE_SECURE=0 or be served over HTTPS.');
+        return;
+      }
       setMe(me); setViewDemo(false);
       try { sessionStorage.removeItem('session'); } catch { /* ignore */ }
       window.dispatchEvent(new CustomEvent('auth:changed', { detail: { message: signup ? `Welcome, ${me.learner.name}! Your learning path starts here.` : `Signed in as ${me.learner.name}` } }));

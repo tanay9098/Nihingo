@@ -104,7 +104,8 @@ Run in the development sandbox on **Oct 17 2026**; the accounts feature was veri
   learner isolation (two accounts never see or change each other's sessions, attempts, listening logs, timeline or graph neighbourhood; resetting progress keeps the account).
 * ✅ Real headless Chromium run of the UI (desktop 1200 px and mobile 390 px): all five pages load with **no console/CSP errors**, no horizontal overflow, and the two-session demo completes through the UI. This found and fixed a real bug (Unicode ids rejected by validation).
   A second run (desktop 1100 px and mobile 375 px) covered the account flow: guest demo view → create account (with a too-short password first) → own empty learning path → switch to the demo learner and back →
-  sign out → wrong password → sign in again; the session cookie is `HttpOnly`/`SameSite=Lax` and unreadable from page scripts. It found and fixed a real bug (a slow earlier page could overwrite the page shown after it).
+  sign out → wrong password → sign in again; the session cookie is `HttpOnly`/`SameSite=Lax` and unreadable from page scripts. It found and fixed a real bug (a slow earlier page could overwrite the page shown after it). With `COOKIE_SECURE=1` over plain `http://`, sign-in and sign-up
+  show an explanation and stay on the guest view instead of appearing signed in.
 * ✅ `docker compose config` validates the Compose file; the Lazy Benkyou links, channel feed and each video's embeddability (oEmbed) were checked live against YouTube.
 * ❌ **Not run here:** `docker compose up` / the Docker image build (no Docker daemon in the sandbox — the Dockerfile and Compose were written to the official docs, the `falkordb/falkordb:v4.18.9` tag was confirmed to exist on Docker Hub,
   but the volume path could not be read from the image, so Compose pins Redis' `--dir /data` explicitly); **AI mode** with a real LLM; the **GraphRAG-SDK** `ingest`/`completion` calls (only its API signatures and a live FalkorDB connection were verified);
@@ -134,7 +135,7 @@ Run in the development sandbox on **Oct 17 2026**; the accounts feature was veri
 | PDFs show as “linked” only | Install `poppler-utils` (`pdftotext`, `pdfinfo`). Image-only PDFs can't be text-extracted. |
 | YouTube video won't play | Offline/blocked/embedding disabled: use the “Open it on YouTube” link. The rest of the app is unaffected. |
 | `npm test` skips integration tests | They need a reachable FalkorDB (`FALKORDB_PORT=…`). Skips are reported as skipped, not passed. |
-| Sign-in seems to work, but your path shows the demo learner's data, or you are a guest again after a reload | `COOKIE_SECURE=1` while the page is served over plain `http://`: the browser refuses the `Secure` session cookie. Use HTTPS, or set `COOKIE_SECURE=0` for local use. |
+| “…browser did not keep the sign-in cookie, so you are still a guest” after signing in or up | The password was right (or the account was created) but the browser dropped the session cookie: cookies are blocked for the site, or `COOKIE_SECURE=1` while the page is served over plain `http://`. Allow cookies, and use HTTPS or set `COOKIE_SECURE=0` for local use. |
 | “Your sign-in has expired. Please sign in again.” | The session is older than `SESSION_TTL_DAYS` (default 30), or you signed out in another tab. Sign in again; your learning path is kept. |
 | “Too many attempts” when signing in or up | More than 20 tries in 10 minutes from one IP. Wait, or restart the app (the counter is in-process). Behind a proxy see *Known limitations*. |
 | Forgot a password | There is no password reset yet; create a new account (its learning path starts empty). |

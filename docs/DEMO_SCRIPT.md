@@ -73,5 +73,5 @@ Switch the top bar back to **Demo learner (Aiko)** (or **Sign out**), then **Mem
 * The dashboard says “The graph database is starting up”: wait for FalkorDB's health check (≈ 10 s) and press *Try again*.
 * The YouTube player stays black (offline / blocked): use the “Open it on YouTube” link; everything else works offline.
 * “Your sign-in has expired”: the session lasted longer than `SESSION_TTL_DAYS` (default 30) or you signed out in another tab — sign in again.
-  Sign-in never works behind plain `http://` with `COOKIE_SECURE=1`; leave it at `0` for a local demo.
+  “…did not keep the sign-in cookie”: cookies are blocked, or `COOKIE_SECURE=1` while the page is served over plain `http://`; leave it at `0` for a local demo.
 * Questions differ from the list above: the Examiner is deterministic *for a given graph state*; if the demo learner was used before, restore the seeded demo first.
