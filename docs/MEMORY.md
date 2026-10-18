@@ -52,6 +52,10 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 
 Newest first. One entry per change: date · summary · files · how it was tested.
 
+* **2026-10-18** · Optional TLS / ACL user for the FalkorDB connection (for hosted databases such as FalkorDB Cloud): `FALKORDB_TLS=1` sets `socket.tls`,
+  `FALKORDB_USERNAME` sets the ACL user; both default to off/empty so the Compose/local setup is unchanged. Files: `server/config.js`, `server/graph/client.js`,
+  `.env.example`, `docker-compose.yml`, `README.md`, `tests/unit.test.js`. Tested: `npm test` → 50/50 pass against FalkorDB (falkordblite module); a manual
+  connect through a Node TLS-terminating proxy with a self-signed cert succeeded with `tls: true` (verified via `NODE_EXTRA_CA_CERTS`). Not tested against FalkorDB Cloud itself.
 * **2026-10-18** · Docs: audited `docs/ARCHITECTURE.md` against the code and corrected it (missing endpoints, `Meta` node, Exercise/Attempt
   properties, Examiner contrast-partner rule, prerequisite rule only for grammar, `affinity:*` threshold, pace multipliers, reset behaviour, CSP images,
   service layer in the diagram); added *Tech stack*, *Folder structure*, *API flow* (request pipeline, endpoint table, frontend flow), *Database* and

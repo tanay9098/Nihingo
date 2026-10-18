@@ -19,7 +19,10 @@ export const config = {
   falkor: {
     host: env.FALKORDB_HOST || 'localhost',
     port: Number(env.FALKORDB_PORT) || 6380,
+    username: env.FALKORDB_USERNAME || undefined,
     password: env.FALKORDB_PASSWORD || undefined,
+    // Encrypted connection (e.g. FalkorDB Cloud). Off by default: the bundled Compose database is plain TCP.
+    tls: env.FALKORDB_TLS === '1',
     graph: env.FALKORDB_GRAPH || 'nihongo',
     queryTimeoutMs: Number(env.FALKORDB_QUERY_TIMEOUT_MS) || 8000,
   },

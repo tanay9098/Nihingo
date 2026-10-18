@@ -254,3 +254,18 @@ test('accounts: passwords are salted scrypt hashes; emails are normalised', asyn
   assert.equal(normalizeEmail('  Aya@Example.COM '), 'aya@example.com');
   for (const bad of ['', 'aya', 'aya@', '@example.com', 'aya@example', 'a b@example.com']) assert.throws(() => normalizeEmail(bad), /valid email/);
 });
+
+test('FalkorDB connection options: TLS is off by default and on only with FALKORDB_TLS=1', async () => {
+  const load = async (vars) => {
+    const code = `import('${new URL('../server/config.js', import.meta.url).href}').then(m => console.log(JSON.stringify(m.config.falkor)))`;
+    const { execFileSync } = await import('node:child_process');
+    const env = { PATH: process.env.PATH, ...vars };
+    return JSON.parse(execFileSync(process.execPath, ['-e', code], { env, encoding: 'utf8' }));
+  };
+  const off = await load({});
+  assert.equal(off.tls, false);
+  assert.equal(off.username, undefined);
+  const on = await load({ FALKORDB_TLS: '1', FALKORDB_USERNAME: 'app' });
+  assert.equal(on.tls, true);
+  assert.equal(on.username, 'app');
+});

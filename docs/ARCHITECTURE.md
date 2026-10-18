@@ -161,7 +161,7 @@ remembered in `localStorage`), `api.js` sends `X-Learner-Id: learner:demo`. All 
 ## Database
 
 FalkorDB is the only datastore: there are no SQL databases, caches or files written at runtime (apart from `docs/RESOURCE_INVENTORY.md` by `npm run ingest`).
-Connection settings come only from server env (`FALKORDB_HOST/PORT/PASSWORD/GRAPH`, `FALKORDB_QUERY_TIMEOUT_MS` default 8000 ms).
+Connection settings come only from server env (`FALKORDB_HOST/PORT/USERNAME/PASSWORD/TLS/GRAPH`; `FALKORDB_TLS=1` encrypts the connection, `FALKORDB_QUERY_TIMEOUT_MS` default 8000 ms).
 Writes use `GraphClient.query()`, reads may use `GraphClient.read()` (`roQuery`). Persistence in Docker: AOF (`appendfsync everysec`) on the `falkordb_data` volume.
 
 ### Why a graph is essential here
