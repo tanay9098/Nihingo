@@ -22,7 +22,7 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
   (`learner:<uuid>`). Email + password is legacy (`PASSWORD_AUTH=1`). Visitors without any account see `learner:demo` (seeded, `isDemo: true`).
 * **Learning path**: Hiragana → Katakana → First words → Sentence patterns → First kanji → JLPT N5 extension (`pathway.js`), computed from `STUDIES` edges.
 * **Content**: `resources/original/` (MIT, curated), `resources/local/` (third-party JLPT N5 PDFs/CSV), `resources/external/lazybenkyou_videos.json` (15 videos).
-* **Tests**: 69 in `tests/` (unit, ingestion, api, workflow, auth), all passing on 2026-10-18 against a real FalkorDB module. Run with `FALKORDB_PORT=<port> npm test`.
+* **Tests**: 70 in `tests/` (unit, ingestion, api, workflow, auth), all passing on 2026-10-18 against a real FalkorDB module. Run with `FALKORDB_PORT=<port> npm test`.
 * **Boot**: `server/index.js` retries the database forever with backoff (`bootLoop`), so a late/misconfigured-then-fixed DB is picked up without a restart.
 * **Deploy**: Render web service (Docker); FalkorDB must be external (`FALKORDB_HOST` ≠ localhost). README → *Deploying on Render* lists the env vars.
 * **Not implemented / known gaps**: deleting a Google account; rate limit and per-learner lock are in-process
@@ -54,6 +54,18 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 ## Change log
 
 Newest first. One entry per change: date · summary · files · how it was tested.
+
+* **2026-10-18** · Library item popup without technical words or sources. Removed from the popup: the per-item *Sources:* line (file names,
+  row/page, licence text), the stroke-order box (raw PDF file names, and for kanji the "drop a PDF into resources/local/" note), "Level: not
+  labelled" (row hidden when the level is unknown) and the exercise chips with internal type names (`vocab_mc_meaning ×1 · generated from source`).
+  Now: one line *6 practice questions: 3 multiple choice, 2 typed answers, 1 flashcard* (`practiceLine` in `utils.js`, by `format`), related items
+  grouped under plain headings *Used in / Contains / Builds on / Needed for / Easy to confuse with* with two-way links shown once
+  (`relatedItems` in `utils.js`), and *You haven’t practised this yet.* Attribution moved to the site footer (hanabira.org, CC BY 4.0 / CC BY-SA 4.0
+  require credit; Lazy Benkyou credit was already there). The API still returns `resources` and exercise `type`/`origin` (unchanged), and the
+  Library's *Stroke order* tab is unchanged. Files: `public/js/{library,utils}.js`, `public/index.html`, `tests/unit.test.js` (1 new test).
+  Tested: `FALKORDB_PORT=6380 npm test` (70/70 pass, none skipped) against FalkorDB (falkordblite module); popups for a kana, a word, a kanji and a
+  grammar point checked in Chromium (Playwright) at 1280 px and 390 px: no file names, licence text, underscores or "generated" in the popup text,
+  no console errors, no horizontal scroll.
 
 * **2026-10-18** · Readable Library item popup in dark mode. Cause: `<dialog>` gets the browser's default text colour (`CanvasText`, black)
   instead of inheriting the theme, and the app never declared `color-scheme`, so values in the item dialog were near-black on the dark surface
