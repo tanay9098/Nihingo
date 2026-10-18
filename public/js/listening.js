@@ -67,7 +67,7 @@ export async function render(main, { showError }) {
             try { await api.logListening(l.id, { logId, rating, note: note.value.trim() }); toast('Saved to episodic memory'); dialog.close(); render(main, { showError }); } catch (err) { b.disabled = false; toast(err.message); }
           } }, 'Log comprehension'),
           h('button', { class: 'btn', onclick: async () => { try { await api.saveLesson(l.id, !l.saved); toast(l.saved ? 'Removed from saved' : 'Saved'); dialog.close(); render(main, { showError }); } catch (err) { toast(err.message); } } }, l.saved ? 'Unsave' : '★ Save lesson'))),
-      h('p', { class: 'small muted' }, 'Low ratings (1–2) feed the Planner: it will recommend revising concepts linked to this lesson’s topic.')));
+      h('p', { class: 'small muted' }, 'Low ratings (1–2) tell the app to plan revision of the words and grammar from this lesson’s topic.')));
     dialog.addEventListener('close', () => clear(dialog), { once: true });
     dialog.showModal();
   }

@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { h, clear, plural, statusBadge } from './utils.js';
+import { h, clear, plural, pct, statusBadge } from './utils.js';
 
 const TABS = [
   ['all', 'All'], ['vocabulary', 'Vocabulary'], ['kana', 'Hiragana & katakana'], ['kanji', 'Kanji'], ['stroke', 'Stroke order'],
@@ -93,8 +93,8 @@ function detail(dlg, it, open) {
       ? [h('strong', {}, 'Stroke-order reference material'), h('ul', { class: 'list' }, refs.map((r) => h('li', {}, `${r.title}${r.page ? ` · page ${r.page}` : ''}`, h('span', { class: 'small muted' }, `${r.source}`))))]
       : h('p', { class: 'small' }, 'No stroke-order reference is installed for this kanji. Only the stroke count above is available (from the source data). Drop a stroke-order PDF or image into resources/local/ to link it here.')) : null,
     it.topics.length ? h('div', { class: 'chips' }, it.topics.map((t) => h('span', { class: 'badge' }, t))) : null,
-    it.learnerState ? h('p', { class: 'small' }, 'Your memory: ', statusBadge(it.learnerState.status), ` mastery ${it.learnerState.mastery} · ${plural(it.learnerState.attempts, 'attempt')}`) : h('p', { class: 'small muted' }, 'Not practised yet by this learner.'),
-    it.related.length ? h('div', {}, h('strong', {}, 'Related in the graph'), h('div', { class: 'chips' }, it.related.map((r) => h('button', { class: 'btn small', onclick: () => open(r.id) }, `${r.rel === 'APPEARS_IN' ? (r.outgoing ? 'appears in' : 'contains') : r.rel.toLowerCase().replace('_', ' ')}: ${r.name}`)))) : null,
+    it.learnerState ? h('p', { class: 'small' }, 'Your progress: ', statusBadge(it.learnerState.status), ` ${pct(it.learnerState.mastery)} known · practised ${it.learnerState.attempts === 1 ? 'once' : `${it.learnerState.attempts} times`}`) : h('p', { class: 'small muted' }, 'Not practised yet by this learner.'),
+    it.related.length ? h('div', {}, h('strong', {}, 'Related'), h('div', { class: 'chips' }, it.related.map((r) => h('button', { class: 'btn small', onclick: () => open(r.id) }, `${r.rel === 'APPEARS_IN' ? (r.outgoing ? 'appears in' : 'contains') : r.rel.toLowerCase().replace('_', ' ')}: ${r.name}`)))) : null,
     it.exercises.length ? h('div', {}, h('strong', {}, `${plural(it.exercises.length, 'exercise')} available`), h('div', { class: 'chips' }, Object.values(counts).map((c) => h('span', { class: `badge ${c.origin === 'original' ? 'src-original' : ''}` }, `${c.type} ×${c.n} · ${c.origin === 'original' ? 'original' : 'generated from source'}`)))) : null,
     h('div', { class: 'small muted' }, 'Sources: ', it.resources.filter((r) => r.rel !== 'REFERENCES').map((r) => `${r.title}${r.loc ? ` (${r.loc})` : ''} — ${r.source}; ${r.license}`).join(' | ') || 'n/a')));
 }
@@ -127,5 +127,5 @@ async function exercisesTab(el) {
   const groups = rows.reduce((m, r) => { (m[r.origin] ??= []).push(r); return m; }, {});
   el.replaceChildren(h('div', { class: 'stack' }, Object.entries(groups).map(([origin, list]) => h('div', { class: 'card' },
     h('h2', {}, label[origin] || origin), h('ul', { class: 'list' }, list.map((r) => h('li', {}, h('span', {}, r.type), h('span', { class: 'small muted' }, `${r.format} · ${r.n}`))))))
-    .concat(h('p', { class: 'small muted' }, 'Start a practice session to answer these; the Examiner chooses based on your memory.'))));
+    .concat(h('p', { class: 'small muted' }, 'Start a practice session to answer these; the quiz builder picks them based on your progress.'))));
 }

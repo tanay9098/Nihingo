@@ -6,9 +6,15 @@ import { appMode } from '../config.js';
 import { askJson, numbersSubset } from '../services/llm.js';
 
 const ACTIVITY_TITLE = {
-  revise_concept: 'Targeted revision', revise_prerequisite: 'Prerequisite revision', contrast_revision: 'Compare confusable concepts',
+  revise_concept: 'Targeted revision', revise_prerequisite: 'Revise the basics first', contrast_revision: 'Compare look-alike items',
   topic_revision: 'Topic revision', review_due: 'Review what is due', new_material: 'Learn something new', listen: 'Listening practice',
 };
+
+/** Recommendations stored before the plain-language wording keep their old reason until the next re-plan; reword them on read. */
+export const plainReason = (text = '') => text
+  .replace(/ \(estimated mastery ([\d.]+)\)\./, (_, m) => `, so it is only about ${Math.round(Number(m) * 100)}% learned.`)
+  .replace(/which your memory estimates at only ([\d.]+)/, (_, m) => `which you know only about ${Math.round(Number(m) * 100)}%`)
+  .replace('which your memory shows you have not practised yet', 'which you have not practised yet');
 
 export class TutorAgent {
   constructor({ memory, catalog, planner }) { Object.assign(this, { memory, catalog, planner }); }
@@ -78,6 +84,7 @@ export class TutorAgent {
   }
 
   async explain(rec, lesson) {
+    rec = { ...rec, reason: plainReason(rec.reason) };
     const deterministic = { text: rec.reason, by: 'rules + graph evidence' };
     if (appMode() !== 'ai') return deterministic;
     const evidence = JSON.stringify({ reason: rec.reason, evidence: rec.evidence, material: lesson.concepts.map((c) => ({ name: c.name, explanation: c.explanation, example: c.example, meaning: c.meaning })) });

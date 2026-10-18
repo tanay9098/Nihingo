@@ -57,7 +57,7 @@ export async function render(main, { showError, rerender }) {
 
   // --- graph explorer
   const center = qs.get('center') || mem.learner.id;
-  const gbox = h('div', { class: 'graph-wrap' }, h('p', { class: 'loading' }, 'Loading graph…'));
+  const gbox = h('div', { class: 'graph-wrap' }, h('p', { class: 'loading' }, 'Loading map…'));
   const depthSel = h('select', { 'aria-label': 'Depth' }, [['1', 'Direct links'], ['2', 'Two steps out']].map(([v, l]) => h('option', { value: v }, l)));
   const label = h('span', { class: 'small muted' });
   const loadGraph = async (id) => {
@@ -65,7 +65,7 @@ export async function render(main, { showError, rerender }) {
       const { renderGraph } = await import('./graph.js');
       const data = await api.neighborhood({ center: id, depth: depthSel.value, limit: 50 });
       label.textContent = `Showing: ${data.nodes.find((n) => n.center)?.label} · ${plural(data.nodes.length, 'item')} · ${plural(data.edges.length, 'link')}`;
-      renderGraph(gbox, data, { onSelect: loadGraph, caption: 'Graph explorer' });
+      renderGraph(gbox, data, { onSelect: loadGraph, caption: 'My learning map' });
     } catch (err) { gbox.replaceChildren(h('p', { class: 'muted', style: null }, `The map couldn’t be loaded: ${err.message}`)); }
   };
   depthSel.addEventListener('change', () => loadGraph(center));

@@ -12,8 +12,8 @@ If someone already clicked around: **Memory → Reset the demo → Restore seede
 a persistent FalkorDB graph. Aiko's three earlier sessions are **seeded demo data** (blue *demo data* badges); anything we do now is live.”
 
 ## 1. Dashboard — the starting memory (45 s)
-1. **Today** shows *Targeted revision — に*: “You answered 3 questions about に incorrectly across 3 sessions (estimated mastery 0.078)…”.
-2. Open **Why this recommendation?** → rule *Recurring mistake*, *3 mistakes in 3 sessions (3 from seeded demo history, 0 from live answers)*, graph path info, memory version.
+1. **Today** shows *Targeted revision — に*: “You answered 3 questions about に incorrectly across 3 sessions, so it is only about 8% learned…”.
+2. Open **Why this recommendation?** → *Reason: You keep missing the same item*, *3 mistakes over 3 sessions (3 from the demo history, 0 from your own answers)*, *How well you know it: about 8%*.
 3. Point at **Recently missed** (all *demo data*), **Grammar needing revision** (に *needs revision*, で *getting there*) and **My learning map** (red edge = struggling).
 4. Point at **Your learning path**: Aiko's seeded sessions only covered grammar and vocabulary, so *Hiragana* is “You are here” while *First words* (3/56) and *Sentence patterns* (4/16) already show progress.
    Revision comes first, so today's plan is に; new items are drawn from the current step.
@@ -22,7 +22,7 @@ a persistent FalkorDB graph. Aiko's three earlier sessions are **seeded demo dat
 ## 2. Session 1 — the learner repeats the mistakes (60 s)
 1. **Start today's session**. The Tutor briefing shows the に explanation (from `grammar.json`, with source). The Examiner's five questions each show **why** they were chosen:
    1. `駅＿行きます。 (destination)` — *Revision of a recurring mistake*
-   2. `家＿本を読みます。 (where the action happens)` — *Confusable with に (CONTRASTS_WITH)* ← graph-derived
+   2. `家＿本を読みます。 (where the action happens)` — *Easy to confuse with に* ← graph-derived (`CONTRASTS_WITH`)
    3. `月曜日＿学校に行きます。 (time)` — *Revision of a recurring mistake*
    4. `station` — *Due for review*
    5. `a (hiragana)` — *New material · Step 1: Hiragana* ← from the learning path
@@ -31,14 +31,14 @@ a persistent FalkorDB graph. Aiko's three earlier sessions are **seeded demo dat
 3. **Finish session**.
 
 ## 3. Memory update + Session 2 recommendation (60 s)
-The summary page now says **Compare confusable concepts — に + で**: “You have missed both に (5 mistakes) and で (2 mistakes), and they are easy to confuse.”
-* **Why this recommendation?** → *3 from seeded demo history, 2 from live answers*; *Graph path: CONTRASTS_WITH — で (2 mistakes)*. The recommendation changed from `revise_concept` to `contrast_revision` **because the graph changed**.
+The summary page now says **Compare look-alike items — に + で**: “You have missed both に (5 mistakes) and で (2 mistakes), and they are easy to confuse.”
+* **Why this recommendation?** → *3 from the demo history, 2 from your own answers*; *Easy to confuse with “で” (2 mistakes)* (the graph's `CONTRASTS_WITH` edge). The recommendation changed from `revise_concept` to `contrast_revision` **because the graph changed**.
 * **How this session was built** shows the real chain in plain sentences (agents are labelled *Your tutor* = Tutor, *Quiz builder* = Examiner, *Progress tracker* = Memory & Planner):
   “Looked at your study history…” → “Suggested: …” → “Picked 5 questions on …” → (“Marked your answer on …” → “Updated your progress on …”) ×5 → “Finished the session…” → “Planned what to study next…”.
 * “We noticed: You got 50% right with typed answers. You got 50% right with multiple choice.” — study habits (procedural memory) inferred from evidence.
 
 ## 4. Session 2 — the Tutor reads the updated state (45 s)
-1. **Start the next session**: the Tutor's explanation is the new one; questions are labelled *Side-by-side revision of confusable concepts* (に and で together).
+1. **Start the next session**: the Tutor's explanation is the new one; questions are labelled *Side-by-side revision of easily confused items* (に and で together).
 2. Answer correctly this time (Q5 is the next hiragana, `i (hiragana)`). Finish: score 100 %, mastery rises (に 0.031 → 0.125 → 0.196), and the next recommendation moves on to **で** alone (*2 mistakes across 2 sessions; 1 demo, 1 live*) because に has recovered (last two answers right).
 
 ## 5. Proof it is real graph state (60 s)

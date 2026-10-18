@@ -93,6 +93,12 @@ export function proceduralText(item) {
   return 'Noted how you like to study.';
 }
 
+// Events logged before the plain-language wording carry raw mastery numbers in the tutor's message (same rewrite as plainReason in tutor.js).
+const legacyMessage = (text) => text
+  .replace(/ \(estimated mastery ([\d.]+)\)\./, (_, m) => `, so it is only about ${pct(Number(m))} learned.`)
+  .replace(/which your memory estimates at only ([\d.]+)/, (_, m) => `which you know only about ${pct(Number(m))}`)
+  .replace('which your memory shows you have not practised yet', 'which you have not practised yet');
+
 const STUDY_CHANGE = /^STUDIES\((.+?)\): mastery ([\d.]+) → ([\d.]+), status (\w+) → (\w+)/;
 
 /** One agent event → plain-language sentences built from its stored fields. Never shows raw data. */
@@ -106,7 +112,7 @@ export function describeEvent(e, names = {}) {
     }
     case 'recommend_and_explain': {
       const f = focusNames(r.focus);
-      return [`Suggested: ${o.title || 'your next step'}${f ? ` (${f})` : ''}.`, o.message || null, o.listening ? `Also suggested listening: ${o.listening}.` : null];
+      return [`Suggested: ${o.title || 'your next step'}${f ? ` (${f})` : ''}.`, o.message ? legacyMessage(o.message) : null, o.listening ? `Also suggested listening: ${o.listening}.` : null];
     }
     case 'select_exercises': {
       const list = Array.isArray(o.exercises) ? o.exercises : [];
@@ -147,34 +153,34 @@ export function describeEvent(e, names = {}) {
 }
 
 const RULES = {
-  'recurring-mistake': 'Recurring mistake on one concept',
-  'prerequisite-gap': 'Weak prerequisite in the concept graph',
-  'confusable-pair': 'Two confusable concepts both missed',
-  'listening-gap': 'Low listening comprehension rating',
-  overdue: 'Items overdue for spaced review',
-  'first-session': 'No history yet',
-  'next-in-sequence': 'Nothing urgent: next in sequence',
-  'topic-overlap': 'Shares a topic with today\'s focus',
-  'newest-unwatched': 'Newest unwatched lesson',
+  'recurring-mistake': 'You keep missing the same item',
+  'prerequisite-gap': 'Something it builds on needs work first',
+  'confusable-pair': 'Two similar items are getting mixed up',
+  'listening-gap': 'A listening lesson felt hard',
+  overdue: 'Some items are due for review',
+  'first-session': 'You are just getting started',
+  'next-in-sequence': 'Nothing needs revision, so you move on to the next step',
+  'topic-overlap': 'It covers the same topic as what you are studying',
+  'newest-unwatched': 'It is the newest lesson you have not watched',
 };
 
-/** Human-readable evidence lines built only from fields the Planner stored with the recommendation. */
+/** Plain-language evidence lines built only from fields the Planner stored with the recommendation. */
 export function evidenceLines(rec) {
   const e = rec.evidence || {};
-  const out = [`Rule applied: ${RULES[e.rule] || e.rule || 'n/a'}`];
-  if (e.stage) out.push(`Learning path: step ${e.stage.step} of ${e.stage.of} — ${e.stage.title} (${e.stage.module})`);
+  const out = [`Reason: ${RULES[e.rule] || 'Picked from your progress'}`];
+  if (e.stage) out.push(`Your learning path: step ${e.stage.step} of ${e.stage.of} — ${e.stage.title} (${e.stage.module})`);
   if (e.mistakeCount) {
-    let line = `${plural(e.mistakeCount, 'mistake')} recorded in ${plural(e.sessionCount, 'session')}`;
-    if (e.demoMistakes) line += ` (${e.demoMistakes} from seeded demo history, ${e.liveMistakes} from live answers)`;
+    let line = `${plural(e.mistakeCount, 'mistake')} over ${plural(e.sessionCount, 'session')}`;
+    if (e.demoMistakes) line += ` (${e.demoMistakes} from the demo history, ${e.liveMistakes} from your own answers)`;
     out.push(line);
   }
-  if (e.mastery != null) out.push(`Estimated mastery ${e.mastery} (conservative lower bound), status “${e.status || 'n/a'}”`);
-  if (e.prerequisite) out.push(`Graph path: ${rec.focusName} ← REQUIRES — “${e.prerequisite.name}” (${e.prerequisite.attempts ? `mastery ${e.prerequisite.mastery}` : 'not practised yet'})`);
-  if (e.contrast) out.push(`Graph path: CONTRASTS_WITH — “${e.contrast.name}” (${plural(e.contrast.mistakes, 'mistake')})`);
-  if (e.path) out.push(`Graph path: concept → topic “${e.path.topic}” → lesson`);
-  if (e.dueCount) out.push(`${plural(e.dueCount, 'item')} currently due for review`);
+  if (e.mastery != null) out.push(`How well you know it: about ${pct(e.mastery)} (a cautious estimate)${e.status ? ` · ${STATUS_LABEL[e.status] || e.status}` : ''}`);
+  if (e.prerequisite) out.push(`It builds on “${e.prerequisite.name}”, which ${e.prerequisite.attempts ? `you know about ${pct(e.prerequisite.mastery)}` : 'you have not practised yet'}`);
+  if (e.contrast) out.push(`Easy to confuse with “${e.contrast.name}” (${plural(e.contrast.mistakes, 'mistake')})`);
+  if (e.path) out.push(`Shares the topic “${e.path.topic}” with what you are studying`);
+  if (e.dueCount) out.push(`${plural(e.dueCount, 'item')} ${e.dueCount === 1 ? 'is' : 'are'} due for review`);
   if (e.difficulty) out.push(`Lesson level: ${e.difficulty}`);
-  out.push(`Computed from learner memory version ${e.stateVersion ?? '?'}`);
+  out.push('Based on your latest answers');
   return out;
 }
 

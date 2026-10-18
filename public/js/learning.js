@@ -33,7 +33,7 @@ function intro(main, ctx) {
 }
 
 async function begin(main, ctx) {
-  clear(main).append(h('p', { class: 'loading' }, 'The Tutor is reading your memory and the Examiner is choosing questions…'));
+  clear(main).append(h('p', { class: 'loading' }, 'Your tutor is looking at your progress and picking questions…'));
   try {
     const v = await api.startSession();
     store(v.session.id);
@@ -52,7 +52,7 @@ function briefing(main, v, ctx) {
         c.example ? h('p', { class: 'jp' }, c.example, h('span', { class: 'muted' }, ` ${c.exampleMeaning || ''}`)) : null)),
       b.lesson.sources.length ? h('p', { class: 'small muted' }, 'Source: ', b.lesson.sources.map((s) => `${s.title} (${s.source})`).join('; ')) : null) : null,
     h('div', { class: 'card' }, h('h2', {}, `${v.exercises.length} questions picked by the quiz builder`),
-      h('ul', { class: 'list' }, v.exercises.map((e, i) => h('li', {}, h('span', {}, `${i + 1}. ${TYPE_LABEL[e.type] || e.type}`), h('span', { class: 'small muted' }, e.reason))))),
+      h('ul', { class: 'list' }, v.exercises.map((e, i) => h('li', {}, h('span', {}, `${i + 1}. ${TYPE_LABEL[e.type] || e.type}`), h('span', { class: 'small muted' }, (e.reason || '').replace(/^Confusable with (.+) \(CONTRASTS_WITH\)$/, 'Easy to confuse with $1')))))),
     h('button', { class: 'btn primary', id: 'begin' }, 'Begin')));
   main.querySelector('#begin').addEventListener('click', () => runSession(main, v, ctx));
 }

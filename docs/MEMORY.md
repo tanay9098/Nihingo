@@ -55,6 +55,18 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 
 Newest first. One entry per change: date · summary · files · how it was tested.
 
+* **2026-10-18** · Plain language, part 2: the *Why this recommendation?* box (`evidenceLines` in `utils.js`) now says *Reason: …*, *How well you
+  know it: about 8%*, *Easy to confuse with “で”* instead of rule ids, raw mastery, `Graph path: CONTRASTS_WITH/REQUIRES` and the memory version.
+  Server wording: Planner reasons say “only about 8% learned” instead of “(estimated mastery 0.078)” (`planner.js`); Examiner reason
+  “Easy to confuse with “X”” instead of “Confusable with “X” (CONTRASTS_WITH)” (`examiner.js`); activity titles *Revise the basics first* /
+  *Compare look-alike items* (`tutor.js`). Recommendations and agent events stored before this keep their old text in the graph, so it is reworded on
+  read (`plainReason` in `tutor.js`, `legacyMessage` in `utils.js`, exercise reasons in `learning.js`): no migration. Also: % known in Due for review,
+  Library item detail and graph tooltips; friendlier loading/empty/help text on Today, Practice, Library, Listening and sign-in. Field names and
+  types unchanged. Files: `server/agents/{planner,examiner,tutor}.js`, `public/js/{utils,learning,dashboard,library,listening,memory,graph,auth}.js`,
+  `tests/unit.test.js` (2 new tests), `docs/DEMO_SCRIPT.md`. Tested: `FALKORDB_PORT=6380 npm test` (64/64 pass, none skipped) against FalkorDB
+  (falkordblite module); Today, Practice briefing, Listening, My progress, a Library item and a full practice session checked in Chromium (Playwright):
+  no graph labels, raw mastery, memory version or JSON in the page text, no console errors, no horizontal scroll at 390 px.
+
 * **2026-10-18** · Plain-language learner UI: agent activity no longer shows raw JSON anywhere. The timeline (`timeline()` in `learning.js`, used on
   *My progress* and the session summary) now renders one sentence per step via the new `describeEvent()` in `utils.js` (agents labelled *Your tutor* /
   *Quiz builder* / *Progress tracker*, concept ids resolved to names, relative times); the Read/Changed/Output JSON is gone. Memory page renamed to
