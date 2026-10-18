@@ -71,6 +71,7 @@ npm install && npm start
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `FALKORDB_HOST` / `FALKORDB_PORT` / `FALKORDB_PASSWORD` / `FALKORDB_GRAPH` | localhost / 6380 / empty / `nihongo` | Server-side DB connection (never sent to the browser) |
+| `FALKORDB_USERNAME` / `FALKORDB_TLS` | empty / `0` | Optional ACL user; `FALKORDB_TLS=1` connects over TLS (hosted databases such as FalkorDB Cloud) |
 | `PORT` | 3002 | App port |
 | `AUTO_BOOTSTRAP` | 1 | `0` skips ingestion/seeding on boot |
 | `SESSION_TTL_DAYS` | 30 | How long a sign-in lasts |

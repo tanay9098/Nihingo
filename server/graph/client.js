@@ -14,11 +14,13 @@ export class GraphClient {
   }
 
   async connect({ retries = 10, delayMs = 1000 } = {}) {
-    const { host, port, password, graph } = this.cfg;
+    const { host, port, username, password, tls, graph } = this.cfg;
+    const options = { password, socket: { host, port, connectTimeout: 4000, ...(tls ? { tls: true } : {}) } };
+    if (username) options.username = username;
     let lastErr;
     for (let i = 0; i < retries; i++) {
       try {
-        this.db = await FalkorDB.connect({ password, socket: { host, port, connectTimeout: 4000 } });
+        this.db = await FalkorDB.connect(options);
         this.graph = this.db.selectGraph(graph);
         await this.graph.query('RETURN 1');
         return this;

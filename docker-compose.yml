@@ -39,7 +39,9 @@ services:
       PORT: "3002"
       FALKORDB_HOST: falkordb
       FALKORDB_PORT: "6379"   # container-to-container: the image's internal port (host port is 6380)
+      FALKORDB_USERNAME: ${FALKORDB_USERNAME:-}
       FALKORDB_PASSWORD: ${FALKORDB_PASSWORD:-}
+      FALKORDB_TLS: ${FALKORDB_TLS:-0}   # 1 = encrypted connection (needs FALKORDB_HOST pointing at a TLS database)
       FALKORDB_GRAPH: ${FALKORDB_GRAPH:-nihongo}
       AUTO_BOOTSTRAP: ${AUTO_BOOTSTRAP:-1}   # create schema, ingest resources/, seed the demo learner
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}   # how long a learner sign-in lasts
