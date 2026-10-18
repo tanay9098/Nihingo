@@ -13,6 +13,8 @@ built for the FalkorDB hackathon, **Track 2: Agent Memory and Coordination**.
 > See **[docs/PRD.md](docs/PRD.md)** for the product requirements (goals, target users, features and requirements).
 > Start with **[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)** for the 6-minute walkthrough, **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the graph schema and agent workflow,
 > and **[docs/RESOURCE_INVENTORY.md](docs/RESOURCE_INVENTORY.md)** for what content exists, where it comes from and its licensing.
+> **Contributing (people or AI tools):** read **[docs/RULES.md](docs/RULES.md)** (no unnecessary dependencies, don't break existing APIs, test after every change)
+> and **[docs/MEMORY.md](docs/MEMORY.md)** (project context + change log, so you don't need to read the whole codebase) before changing anything.
 
 ## Quick start
 
@@ -91,9 +93,9 @@ and any failure falls back to the deterministic text. Recommendations themselves
 
 * **Accounts** – *Sign in* / *Create account* (`#/signin`, `#/signup`). Every account gets its own learner, so its learning path, memory and history are its own. Without an account you browse the demo learner as a guest; signed-in users can switch to the demo learner from the top bar.
 
-REST API (all JSON `{ok, data | error}`; learner from the session cookie, or the demo learner for guests): `GET /api/auth/me` · `POST /api/auth/signup|signin|signout` · `GET /api/health` · `/api/dashboard` · `/api/library[?q&kind&topic]` · `/api/library/item?id=` · `/api/resources[/:id]` ·
-`/api/listening` · `POST /api/listening/:id/log|save` · `/api/learner/memory` · `/api/learner/sessions` · `POST /api/sessions` · `POST /api/attempts` · `POST /api/sessions/:id/complete` ·
-`/api/recommendations` · `/api/agents/timeline` · `/api/graph/neighborhood` · `POST /api/feedback` · `POST /api/learner/reset` · `POST /api/tutor/ask`.
+REST API (all JSON `{ok, data | error}`; learner from the session cookie, or the demo learner for guests): `GET /api/auth/me` · `POST /api/auth/signup|signin|signout` · `GET /api/health` · `/api/dashboard` · `/api/library[?q&kind&topic]` · `/api/library/item?id=` · `/api/library/exercises|topics|stroke-references` · `/api/resources[/:id]` ·
+`/api/listening` · `POST /api/listening/:id/log|save` · `/api/learner/memory` · `/api/learner/sessions` · `POST /api/sessions` · `GET /api/sessions/:id` · `GET /api/sessions/:sid/reveal/:exerciseId` · `POST /api/attempts` · `POST /api/sessions/:id/complete` ·
+`/api/recommendations` · `/api/agents/timeline` · `/api/graph/neighborhood` · `POST /api/feedback` · `POST /api/learner/reset` · `POST /api/tutor/ask`. Full table with handlers: `docs/ARCHITECTURE.md` → *API flow*.
 
 ## Verification status (honest)
 
