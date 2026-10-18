@@ -4,6 +4,7 @@ import { ensureSchema } from './graph/schema.js';
 import { CatalogStore } from './graph/catalog.js';
 import { MemoryStore } from './graph/memory.js';
 import { LearningService } from './services/learning.js';
+import { AuthService } from './services/auth.js';
 import { RagService } from './services/rag.js';
 import { ingestResources } from './ingestion/ingest.js';
 import { seedDemo } from './seed/demo.js';
@@ -26,7 +27,8 @@ async function boot() {
     const demo = await memory.recentSessions('learner:demo', 1);
     if (!demo.length) { await seedDemo({ service, memory, log: (m) => console.log(m) }); info.demoSeeded = true; }
   } else await service.ensureLearners();
-  services = { client, catalog, memory, service, rag: new RagService({ catalog, client }) };
+  await memory.pruneAuthSessions(Date.now());
+  services = { client, catalog, memory, service, auth: new AuthService({ memory }), rag: new RagService({ catalog, client }) };
   state.ready = true; state.error = null; state.bootstrap = info;
   console.log(`Ready. Mode: ${appMode()} · graph "${config.falkor.graph}" @ ${config.falkor.host}:${config.falkor.port}`);
 }

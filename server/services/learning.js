@@ -9,10 +9,12 @@ import { ExaminerAgent } from '../agents/examiner.js';
 import { TutorAgent } from '../agents/tutor.js';
 import { kindOfLabels } from '../graph/catalog.js';
 
-export const LEARNERS = {
-  'learner:demo': { name: 'Aiko (demo learner)', isDemo: true },
-  'learner:me': { name: 'You', isDemo: false },
-};
+// The one built-in learner, open to guests. Every other learner is created with an account (services/auth.js).
+export const DEMO_LEARNER = { id: 'learner:demo', name: 'Aiko (demo learner)', isDemo: true };
+// The shared "My profile" learner from before accounts existed; removed on boot.
+const LEGACY_LEARNERS = ['learner:me'];
+// Never shown in the graph explorer, whoever asks.
+const PRIVATE_LABELS = ['Account', 'AuthSession', 'Meta'];
 
 export class HttpError extends Error {
   constructor(status, message, code = 'bad_request') { super(message); this.status = status; this.code = code; }
@@ -27,17 +29,18 @@ export class LearningService {
   }
 
   async ensureLearners() {
-    for (const [id, l] of Object.entries(LEARNERS)) await this.memory.ensureLearner({ id, ...l });
+    await this.memory.ensureLearner(DEMO_LEARNER);
+    for (const id of LEGACY_LEARNERS) if (await this.memory.getLearner(id)) await this.memory.deleteLearner(id);
   }
 
-  learnerOr404(id) {
-    if (!LEARNERS[id]) throw new HttpError(404, 'Unknown learner profile', 'unknown_learner');
+  async learnerOr404(id) {
+    if (!(await this.memory.getLearner(id))) throw new HttpError(404, 'Unknown learner profile', 'unknown_learner');
     return id;
   }
 
   // ---------- session workflow ----------
   async startSession(learnerId, sessionId = randomUUID()) {
-    this.learnerOr404(learnerId);
+    await this.learnerOr404(learnerId);
     const existing = await this.memory.getSession(sessionId);
     if (existing) {
       if (existing.learnerId !== learnerId) throw new HttpError(403, 'Session belongs to another profile', 'forbidden');
@@ -77,7 +80,7 @@ export class LearningService {
   }
 
   async answer({ learnerId, sessionId, exerciseId, attemptId = randomUUID(), answer, ms = 0 }) {
-    this.learnerOr404(learnerId);
+    await this.learnerOr404(learnerId);
     const session = await this.memory.getSession(sessionId);
     if (!session || session.learnerId !== learnerId) throw new HttpError(404, 'Session not found', 'unknown_session');
     if (session.status === 'completed') throw new HttpError(409, 'Session already completed', 'session_closed');
@@ -85,6 +88,7 @@ export class LearningService {
     if (!selected.includes(exerciseId)) throw new HttpError(400, 'Exercise is not part of this session', 'bad_exercise');
 
     const prior = await this.memory.getAttempt(attemptId);
+    if (prior && prior.learnerId !== learnerId) throw new HttpError(409, 'attemptId is already in use', 'conflict');
     if (prior) return { duplicate: true, result: this.resultFromAttempt(prior) };
 
     const log = new AgentLog(this.memory, { learnerId, sessionId, isDemo: false, clock: this.clock });
@@ -116,7 +120,7 @@ export class LearningService {
   }
 
   async complete({ learnerId, sessionId }) {
-    this.learnerOr404(learnerId);
+    await this.learnerOr404(learnerId);
     const session = await this.memory.getSession(sessionId);
     if (!session || session.learnerId !== learnerId) throw new HttpError(404, 'Session not found', 'unknown_session');
     const log = new AgentLog(this.memory, { learnerId, sessionId, isDemo: false, clock: this.clock });
@@ -133,7 +137,7 @@ export class LearningService {
 
   // ---------- read models ----------
   async dashboard(learnerId) {
-    this.learnerOr404(learnerId);
+    await this.learnerOr404(learnerId);
     const learner = await this.memory.getLearner(learnerId);
     const brief = await this.tutor.brief({ learnerId });
     const [sessions, recent, due, studyList, lessons, recurring, pathway] = await Promise.all([
@@ -157,7 +161,7 @@ export class LearningService {
   }
 
   async memoryView(learnerId) {
-    this.learnerOr404(learnerId);
+    await this.learnerOr404(learnerId);
     const [learner, sessions, mistakes, logs, studyList, recurring, recs, prefRows, progress] = await Promise.all([
       this.memory.getLearner(learnerId), this.memory.recentSessions(learnerId, 10), this.memory.recentMistakes(learnerId, 15),
       this.memory.listeningLogs(learnerId, 10), this.memory.studyList(learnerId, 100), this.memory.recurringMistakes(learnerId, 1),
@@ -172,11 +176,14 @@ export class LearningService {
     };
   }
 
-  async neighborhood(centerId, { depth = 1, limit = 40, all = false } = {}) {
-    const exclude = all ? [] : ['Attempt', 'AgentEvent', 'ListeningLog', 'Mistake', 'LearningSession', 'Exercise', 'Meta', 'Recommendation', 'LearningPreference'];
+  /** A bounded graph around one node, as `viewer` may see it: never another learner, their records, or account data. */
+  async neighborhood(centerId, { depth = 1, limit = 40, all = false, viewer } = {}) {
+    const exclude = [...PRIVATE_LABELS, ...(all ? [] : ['Attempt', 'AgentEvent', 'ListeningLog', 'Mistake', 'LearningSession', 'Exercise', 'Recommendation', 'LearningPreference'])];
     const nodes = new Map(); const edges = new Map();
-    const labelRows = await this.client.read('MATCH (c {id: $id}) RETURN labels(c) AS labels, coalesce(c.name, c.word, c.char, c.title, c.id) AS name LIMIT 1', { id: centerId });
-    if (!labelRows.length) throw new HttpError(404, 'Node not found', 'unknown_node');
+    const labelRows = await this.client.read('MATCH (c {id: $id}) RETURN labels(c) AS labels, coalesce(c.name, c.word, c.char, c.title, c.id) AS name, c.learnerId AS owner LIMIT 1', { id: centerId });
+    const c = labelRows[0];
+    const hidden = c && (c.labels.some((l) => PRIVATE_LABELS.includes(l)) || (c.labels.includes('Learner') && centerId !== viewer) || (c.owner != null && c.owner !== viewer));
+    if (!c || hidden) throw new HttpError(404, 'Node not found', 'unknown_node');
     const group = (labels) => kindOfLabels(labels) !== 'concept' ? kindOfLabels(labels) : labels.find((l) => l !== 'Concept') ?? 'node';
     nodes.set(centerId, { id: centerId, label: labelRows[0].name, group: group(labelRows[0].labels), center: true });
     let frontier = [centerId];
@@ -184,7 +191,7 @@ export class LearningService {
       const next = [];
       for (const id of frontier) {
         if (nodes.size >= limit) break;
-        const rows = await this.memory.neighborhood(id, { limit: d === 0 ? limit : 8, exclude });
+        const rows = await this.memory.neighborhood(id, { limit: d === 0 ? limit : 8, exclude, viewer });
         for (const r of rows) {
           if (!nodes.has(r.id) && nodes.size >= limit) continue;
           if (!nodes.has(r.id)) { nodes.set(r.id, { id: r.id, label: String(r.name).slice(0, 28), group: group(r.labels), status: r.rStatus ?? r.status ?? null, mastery: r.rMastery ?? r.mastery ?? null }); next.push(r.id); }
@@ -198,7 +205,7 @@ export class LearningService {
   }
 
   async resetLearner(learnerId) {
-    this.learnerOr404(learnerId);
+    await this.learnerOr404(learnerId);
     await this.memory.resetLearner(learnerId);
   }
 }

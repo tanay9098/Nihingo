@@ -6,6 +6,7 @@ import { ensureSchema } from '../server/graph/schema.js';
 import { CatalogStore } from '../server/graph/catalog.js';
 import { MemoryStore } from '../server/graph/memory.js';
 import { LearningService } from '../server/services/learning.js';
+import { AuthService } from '../server/services/auth.js';
 import { RagService } from '../server/services/rag.js';
 import { ingestResources } from '../server/ingestion/ingest.js';
 import { seedDemo } from '../server/seed/demo.js';
@@ -23,7 +24,7 @@ export async function bootstrap(client, { seed = true } = {}) {
   const report = await ingestResources({ catalog, client, dir: config.resourcesDir });
   await service.ensureLearners();
   if (seed) await seedDemo({ service, memory });
-  return { client, catalog, memory, service, report, rag: new RagService({ catalog, client }) };
+  return { client, catalog, memory, service, report, auth: new AuthService({ memory }), rag: new RagService({ catalog, client }) };
 }
 
 export const teardown = async (client) => { try { await client.graph.delete(); } catch { /* ignore */ } await client.close(); };

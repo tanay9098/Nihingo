@@ -11,6 +11,7 @@ import { grammarRowRecord } from '../server/ingestion/records.js';
 import { parsePdfLayout } from '../server/ingestion/pdf-layouts.js';
 import { parseFeed } from '../scripts/refresh-listening-catalog.js';
 import { appMode } from '../server/config.js';
+import { hashPassword, verifyPassword, normalizeEmail } from '../server/services/auth.js';
 import { readFile } from 'node:fs/promises';
 
 test('grading: multiple choice is exact', () => {
@@ -239,4 +240,17 @@ test('mode is demo unless provider, key and model are all set', () => {
   assert.equal(appMode({ llm: { provider: '', apiKey: '', model: '' } }), 'demo');
   assert.equal(appMode({ llm: { provider: 'openai', apiKey: 'k', model: '' } }), 'demo');
   assert.equal(appMode({ llm: { provider: 'openai', apiKey: 'k', model: 'm' } }), 'ai');
+});
+
+test('accounts: passwords are salted scrypt hashes; emails are normalised', async () => {
+  const a = await hashPassword('correct horse battery');
+  const b = await hashPassword('correct horse battery');
+  assert.match(a, /^scrypt\$16384\$8\$1\$/);
+  assert.notEqual(a, b, 'a fresh salt every time');
+  assert.ok(!a.includes('correct horse'));
+  assert.equal(await verifyPassword('correct horse battery', a), true);
+  assert.equal(await verifyPassword('correct horse batterY', a), false);
+  assert.equal(await verifyPassword('anything', 'not-a-hash'), false);
+  assert.equal(normalizeEmail('  Aya@Example.COM '), 'aya@example.com');
+  for (const bad of ['', 'aya', 'aya@', '@example.com', 'aya@example', 'a b@example.com']) assert.throws(() => normalizeEmail(bad), /valid email/);
 });

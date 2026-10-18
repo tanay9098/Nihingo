@@ -68,6 +68,8 @@ npm install && npm start
 | `FALKORDB_HOST` / `FALKORDB_PORT` / `FALKORDB_PASSWORD` / `FALKORDB_GRAPH` | localhost / 6380 / empty / `nihongo` | Server-side DB connection (never sent to the browser) |
 | `PORT` | 3002 | App port |
 | `AUTO_BOOTSTRAP` | 1 | `0` skips ingestion/seeding on boot |
+| `SESSION_TTL_DAYS` | 30 | How long a sign-in lasts |
+| `COOKIE_SECURE` | 0 | `1` marks the session cookie `Secure` (set it whenever the app is served over HTTPS) |
 | `LLM_PROVIDER` (`anthropic`\|`openai`), `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL` | empty | **AI mode** only when provider + key + model are all set; otherwise **Demo mode** (shown in the header badge and `/api/health`) |
 | `GRAPHRAG_URL` | empty | Optional GraphRAG-SDK sidecar (see `graphrag/README.md`) |
 
@@ -84,7 +86,9 @@ and any failure falls back to the deterministic text. Recommendations themselves
 * **Listening** – 15 verified Lazy Benkyou videos, embed + direct link, saved lessons, notes, comprehension ratings. No transcripts exist, so transcript practice is honestly unavailable.
 * **Memory** – real agent timeline, the three memory types, preference editor, bounded graph explorer, source-grounded “Ask the Tutor”, reset.
 
-REST API (all JSON `{ok, data | error}`; learner via `X-Learner-Id`): `GET /api/health` · `/api/dashboard` · `/api/library[?q&kind&topic]` · `/api/library/item?id=` · `/api/resources[/:id]` ·
+* **Accounts** – *Sign in* / *Create account* (`#/signin`, `#/signup`). Every account gets its own learner, so its learning path, memory and history are its own. Without an account you browse the demo learner as a guest; signed-in users can switch to the demo learner from the top bar.
+
+REST API (all JSON `{ok, data | error}`; learner from the session cookie, or the demo learner for guests): `GET /api/auth/me` · `POST /api/auth/signup|signin|signout` · `GET /api/health` · `/api/dashboard` · `/api/library[?q&kind&topic]` · `/api/library/item?id=` · `/api/resources[/:id]` ·
 `/api/listening` · `POST /api/listening/:id/log|save` · `/api/learner/memory` · `/api/learner/sessions` · `POST /api/sessions` · `POST /api/attempts` · `POST /api/sessions/:id/complete` ·
 `/api/recommendations` · `/api/agents/timeline` · `/api/graph/neighborhood` · `POST /api/feedback` · `POST /api/learner/reset` · `POST /api/tutor/ask`.
 
@@ -101,7 +105,8 @@ Run in the development sandbox on **Oct 17 2026**:
   actual **YouTube playback** (the sandbox can't stream video; embeds and fallbacks are in place). There is no stroke *animation*: the stroke-order PDFs in `resources/local/` are linked by page, not parsed into strokes.
 
 ## Known limitations
-* No authentication: two local profiles (`learner:demo`, `learner:me`), not accounts.
+* Accounts are email + password only: no email verification, password reset or account deletion yet. The sign-in rate limit is in-process.
+  Set `COOKIE_SECURE=1` when serving over HTTPS. The old shared `learner:me` profile is removed on boot.
 * The original content is small by design (56 words, 26 kanji, 16 grammar points, 92 kana). With the JLPT N5 files in `resources/local/` the library holds 856 words, 103 kanji and 152 grammar points;
   that material comes from third-party lists (see `docs/RESOURCE_INVENTORY.md`) and carries their quirks. Stroke order is linked as **pages** of the reference PDFs (79 kanji, 92 kana), never animated or verified.
 * The per-learner write lock is in-process (single app instance).
