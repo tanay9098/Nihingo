@@ -1,6 +1,6 @@
 // Practice flow: Tutor briefing -> Examiner questions -> graded feedback -> summary with updated memory.
 import { api } from './api.js';
-import { h, clear, uuid, pct, statusBadge, whyBox, toast } from './utils.js';
+import { h, clear, uuid, pct, ago, statusBadge, whyBox, toast, conceptName, proceduralText, describeEvent, AGENT_LABEL } from './utils.js';
 
 const TYPE_LABEL = {
   vocab_mc_meaning: 'Word → meaning', vocab_en_to_jp: 'Meaning → word', vocab_mc_reading: 'Reading choice', type_reading: 'Type the reading',
@@ -27,7 +27,7 @@ export async function render(main, { showError }) {
 function intro(main, ctx) {
   clear(main).append(h('div', { class: 'stack' }, h('h1', {}, 'Practice'),
     h('div', { class: 'card stack' },
-      h('p', {}, 'A session is planned from your learner memory: the Tutor reads your history, the Examiner picks questions, and the Memory & Planner agent records the outcome.'),
+      h('p', {}, 'Each session is built from your history: your tutor looks at what you have studied, the quiz builder picks questions, and the progress tracker saves how you did.'),
       h('button', { class: 'btn primary', id: 'go' }, 'Start a session'))));
   main.querySelector('#go').addEventListener('click', () => begin(main, ctx));
 }
@@ -51,7 +51,7 @@ function briefing(main, v, ctx) {
         c.explanation ? h('p', {}, c.explanation) : c.meaning ? h('p', {}, `${c.reading || ''} ${c.meaning}`) : c.romaji ? h('p', {}, `${c.script ? `${c.script} · ` : ''}“${c.romaji}”`) : null,
         c.example ? h('p', { class: 'jp' }, c.example, h('span', { class: 'muted' }, ` ${c.exampleMeaning || ''}`)) : null)),
       b.lesson.sources.length ? h('p', { class: 'small muted' }, 'Source: ', b.lesson.sources.map((s) => `${s.title} (${s.source})`).join('; ')) : null) : null,
-    h('div', { class: 'card' }, h('h2', {}, `${v.exercises.length} questions selected by the Examiner`),
+    h('div', { class: 'card' }, h('h2', {}, `${v.exercises.length} questions picked by the quiz builder`),
       h('ul', { class: 'list' }, v.exercises.map((e, i) => h('li', {}, h('span', {}, `${i + 1}. ${TYPE_LABEL[e.type] || e.type}`), h('span', { class: 'small muted' }, e.reason))))),
     h('button', { class: 'btn primary', id: 'begin' }, 'Begin')));
   main.querySelector('#begin').addEventListener('click', () => runSession(main, v, ctx));
@@ -147,13 +147,13 @@ function showFeedback(fb, r, onNext, last) {
     !r.correct || r.ambiguous ? h('p', { lang: 'ja' }, 'Expected: ', h('strong', {}, r.expected)) : null,
     r.note ? h('p', {}, r.note) : null,
     r.explanation ? h('p', {}, r.explanation) : null,
-    r.masteryBefore != null ? h('p', { class: 'small delta' }, `Memory update for “${r.concept || r.conceptId}”: estimated mastery ${r.masteryBefore} → ${r.masteryAfter} (${moved >= 0 ? '+' : ''}${moved.toFixed(3)}) · `, statusBadge(r.status)) : null,
+    r.masteryBefore != null ? h('p', { class: 'small delta' }, `Your progress on “${r.concept || conceptName(r.conceptId)}”: ${pct(r.masteryBefore)} → ${pct(r.masteryAfter)} known (${moved >= 0 ? '+' : ''}${Math.round(moved * 100)} points) · `, statusBadge(r.status)) : null,
     h('button', { class: 'btn primary', id: 'next', autofocus: true, onclick: onNext }, last ? 'Finish session' : 'Next')));
   fb.querySelector('#next').focus();
 }
 
 async function finish(main, v, ctx) {
-  clear(main).append(h('p', { class: 'loading' }, 'The Memory & Planner agent is updating your learner memory…'));
+  clear(main).append(h('p', { class: 'loading' }, 'Saving your progress and planning what comes next…'));
   let r;
   try { r = await api.complete(v.session.id); } catch (err) { return ctx.showError(err, () => finish(main, v, ctx)); }
   store(null);
@@ -164,31 +164,31 @@ async function finish(main, v, ctx) {
     h('h1', {}, 'Session complete'),
     h('div', { class: 'card' }, h('h2', {}, `Score: ${r.score}% (${r.correct}/${r.attempts})`),
       r.changes.length ? h('ul', { class: 'list' }, r.changes.map((c) => h('li', {}, h('span', { class: 'jp' }, c.name),
-        h('span', { class: 'small muted delta' }, `mastery ${c.before ?? 0} → ${c.after ?? 0}${c.mistakes ? ` · ${c.mistakes} missed` : ''}`)))) : null),
+        h('span', { class: 'small muted delta' }, `${pct(c.before)} → ${pct(c.after)} known${c.mistakes ? ` · ${c.mistakes} missed` : ''}`)))) : null),
     h('div', { class: 'card hero stack' }, h('h2', {}, 'What the Tutor recommends next'),
       h('p', {}, h('strong', {}, next.recommendation.title), ' — ', h('span', { class: 'jp' }, next.recommendation.focusName)),
       h('p', {}, next.explanation.text), whyBox(next.recommendation, true),
-      r.procedural.length ? h('p', { class: 'small muted' }, `Procedural memory updated: ${r.procedural.join(', ')}`) : null,
+      r.procedural.length ? h('p', { class: 'small muted' }, `We noticed: ${r.procedural.map(proceduralText).join(' ')}`) : null,
       h('div', { class: 'row' }, h('a', { class: 'btn primary', href: '#/practice?start=1' }, 'Start the next session'), h('a', { class: 'btn', href: '#/' }, 'Dashboard'))),
-    h('div', { class: 'card' }, h('h2', {}, 'Agent handoffs in this session'), timeline(tl)),
+    h('div', { class: 'card' }, h('h2', {}, 'How this session was built'), timeline(tl, Object.fromEntries(r.changes.map((c) => [c.id, c.name])))),
     feedbackCard()));
 }
 
-export function timeline(events) {
-  if (!events.length) return h('div', { class: 'empty' }, 'No agent activity recorded for this session.');
+/** Agent steps in plain language; the stored event data is read for wording only and never shown raw. */
+export function timeline(events, names = {}) {
+  if (!events.length) return h('div', { class: 'empty' }, 'Nothing has happened here yet.');
   return h('ol', { class: 'timeline' }, events.map((e) => h('li', { class: e.agent },
-    h('div', {}, h('span', { class: `agent ${e.agent}` }, ({ tutor: 'Tutor', examiner: 'Examiner', memory_planner: 'Memory & Planner' })[e.agent] || e.agent), ' · ', h('code', {}, e.action), e.isDemo ? h('span', { class: 'badge demo' }, 'demo') : null),
-    kv('Read', e.retrieved), kv('Changed', e.changed), kv('Output', e.output))));
+    h('div', {}, h('span', { class: `agent ${e.agent}` }, AGENT_LABEL[e.agent] || 'The app'), e.at ? h('span', { class: 'small muted' }, ` · ${ago(e.at)} `) : ' ', e.isDemo ? h('span', { class: 'badge demo' }, 'demo') : null),
+    describeEvent(e, names).filter(Boolean).map((line) => h('p', { class: 'kv' }, line)))));
 }
-const kv = (label, obj) => (obj && Object.keys(obj).length ? h('div', { class: 'kv' }, `${label}: `, h('code', {}, JSON.stringify(obj).slice(0, 420))) : null);
 
 function feedbackCard() {
-  const c = h('div', { class: 'card stack' }, h('h2', {}, 'How was the difficulty?'), h('p', { class: 'small muted' }, 'Your answer is stored as explicit procedural memory.'));
+  const c = h('div', { class: 'card stack' }, h('h2', {}, 'How was the difficulty?'), h('p', { class: 'small muted' }, 'Your answer helps shape your next sessions.'));
   const row = h('div', { class: 'row' });
   for (const [v, l] of [['too_easy', 'Too easy'], ['just_right', 'Just right'], ['too_hard', 'Too hard']]) {
     row.append(h('button', { class: 'btn small', onclick: async (ev) => {
       const btn = ev.currentTarget;
-      try { await api.feedback({ type: 'exercise_feedback', verdict: v }); btn.textContent = `${l} ✓`; toast('Feedback saved to procedural memory'); } catch (err) { toast(err.message); }
+      try { await api.feedback({ type: 'exercise_feedback', verdict: v }); btn.textContent = `${l} ✓`; toast('Thanks! Your next session will take this into account'); } catch (err) { toast(err.message); }
     } }, l));
   }
   c.append(row);

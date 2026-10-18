@@ -41,7 +41,7 @@ export function layout(data) {
 export function renderGraph(container, data, { onSelect, caption } = {}) {
   clear(container);
   if (!data.nodes.length || data.nodes.length === 1) {
-    container.append(h('div', { class: 'empty' }, 'Nothing is connected to this node yet. Complete a practice session to grow the learner memory graph.'));
+    container.append(h('div', { class: 'empty' }, 'Nothing is linked to this yet. Complete a practice session to grow your learning map.'));
     return;
   }
   const pos = layout(data);

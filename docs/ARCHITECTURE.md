@@ -249,7 +249,7 @@ The agents never call each other with data; they hand off **ids** and re-read th
 7. `POST /api/sessions/:id/complete` → Planner closes the session, updates procedural memory, writes new `Recommendation` nodes.
 8. The next Tutor request reads that state and produces a different, more targeted recommendation.
 
-Every step writes an `AgentEvent` containing what it read, what it changed and what it produced — the UI timeline is a plain read of these nodes.
+Every step writes an `AgentEvent` containing what it read, what it changed and what it produced — the UI timeline reads these nodes and words each one as plain sentences (`describeEvent` in `public/js/utils.js`); raw event data is never shown in the UI.
 
 ## Memory types
 
