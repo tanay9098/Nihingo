@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { h, clear, plural, pct, statusBadge } from './utils.js';
+import { h, clear, plural, pct, statusBadge, practiceLine, relatedItems } from './utils.js';
 
 const TABS = [
   ['all', 'All'], ['vocabulary', 'Vocabulary'], ['kana', 'Hiragana & katakana'], ['kanji', 'Kanji'], ['stroke', 'Stroke order'],
@@ -79,25 +79,22 @@ function detail(dlg, it, open) {
   const title = it.word || it.char || it.name;
   const dl = h('dl', {});
   const row = (k, v) => v ? dl.append(h('dt', {}, k), h('dd', { lang: 'ja' }, v)) : null;
-  if (it.kind === 'vocabulary') { row('Reading', it.reading); row('Romaji', it.romaji); row('Meaning', it.meaning); row('Definition', it.definition); row('Part of speech', it.pos); row('Level', it.level === 'unknown' ? 'not labelled' : it.level); }
+  if (it.kind === 'vocabulary') { row('Reading', it.reading); row('Romaji', it.romaji); row('Meaning', it.meaning); row('Definition', it.definition); row('Part of speech', it.pos); row('Level', it.level === 'unknown' ? '' : it.level); }
   if (it.kind === 'kanji') { row('Meaning', it.meaning); row('On-yomi', it.onyomi); row('Kun-yomi', it.kunyomi); row('Strokes', it.strokes > 0 ? String(it.strokes) : ''); }
   if (it.kind === 'kana') { row('Romaji', it.romaji); row('Script', it.script); }
   if (it.kind === 'grammar') { row('Pattern', it.pattern); row('Explanation', it.explanation); }
-  const refs = it.resources.filter((r) => r.rel === 'REFERENCES');
-  const counts = it.exercises.reduce((m, e) => { (m[`${e.type}|${e.origin}`] ??= { ...e, n: 0 }).n++; return m; }, {});
+  const practice = practiceLine(it.exercises);
+  const related = relatedItems(it.related);
   clear(dlg).append(h('div', { class: 'stack' },
     h('div', { class: 'row' }, h('h2', { lang: 'ja', class: 'jp' }, it.kind === 'kanji' ? '' : title), h('form', { method: 'dialog', class: 'row' }, h('button', { class: 'btn small' }, 'Close'))),
     it.kind === 'kanji' ? h('div', { class: 'glyph', lang: 'ja' }, it.char) : null,
     dl,
     it.example ? h('div', { class: 'card flat' }, h('div', { class: 'jp', lang: 'ja' }, it.example), it.exampleReading ? h('div', { class: 'small muted', lang: 'ja' }, it.exampleReading) : null, h('div', {}, it.exampleMeaning)) : null,
-    it.kind === 'kanji' || (it.kind === 'kana' && refs.length) ? h('div', { class: 'card flat' }, refs.length
-      ? [h('strong', {}, 'Stroke-order reference material'), h('ul', { class: 'list' }, refs.map((r) => h('li', {}, `${r.title}${r.page ? ` · page ${r.page}` : ''}`, h('span', { class: 'small muted' }, `${r.source}`))))]
-      : h('p', { class: 'small' }, 'No stroke-order reference is installed for this kanji. Only the stroke count above is available (from the source data). Drop a stroke-order PDF or image into resources/local/ to link it here.')) : null,
     it.topics.length ? h('div', { class: 'chips' }, it.topics.map((t) => h('span', { class: 'badge' }, t))) : null,
-    it.learnerState ? h('p', { class: 'small' }, 'Your progress: ', statusBadge(it.learnerState.status), ` ${pct(it.learnerState.mastery)} known · practised ${it.learnerState.attempts === 1 ? 'once' : `${it.learnerState.attempts} times`}`) : h('p', { class: 'small muted' }, 'Not practised yet by this learner.'),
-    it.related.length ? h('div', {}, h('strong', {}, 'Related'), h('div', { class: 'chips' }, it.related.map((r) => h('button', { class: 'btn small', onclick: () => open(r.id) }, `${r.rel === 'APPEARS_IN' ? (r.outgoing ? 'appears in' : 'contains') : r.rel.toLowerCase().replace('_', ' ')}: ${r.name}`)))) : null,
-    it.exercises.length ? h('div', {}, h('strong', {}, `${plural(it.exercises.length, 'exercise')} available`), h('div', { class: 'chips' }, Object.values(counts).map((c) => h('span', { class: `badge ${c.origin === 'original' ? 'src-original' : ''}` }, `${c.type} ×${c.n} · ${c.origin === 'original' ? 'original' : 'generated from source'}`)))) : null,
-    h('div', { class: 'small muted' }, 'Sources: ', it.resources.filter((r) => r.rel !== 'REFERENCES').map((r) => `${r.title}${r.loc ? ` (${r.loc})` : ''} — ${r.source}; ${r.license}`).join(' | ') || 'n/a')));
+    it.learnerState ? h('p', { class: 'small' }, 'Your progress: ', statusBadge(it.learnerState.status), ` ${pct(it.learnerState.mastery)} known · practised ${it.learnerState.attempts === 1 ? 'once' : `${it.learnerState.attempts} times`}`) : h('p', { class: 'small muted' }, 'You haven’t practised this yet.'),
+    [...new Set(related.map((r) => r.label))].map((label) => h('div', {}, h('strong', {}, label),
+      h('div', { class: 'chips' }, related.filter((r) => r.label === label).map((r) => h('button', { class: 'btn small', lang: 'ja', onclick: () => open(r.id) }, r.name))))),
+    practice ? h('p', { class: 'small' }, practice) : null));
 }
 
 async function strokeTab(el, open) {

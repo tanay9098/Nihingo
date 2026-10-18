@@ -184,6 +184,25 @@ export function evidenceLines(rec) {
   return out;
 }
 
+// --- library item popup: plain wording for practice questions and related items
+const FORMAT_COUNT = { multiple_choice: ['multiple choice', 'multiple choice'], typed: ['typed answer', 'typed answers'], flashcard: ['flashcard', 'flashcards'] };
+
+/** "6 practice questions: 4 multiple choice, 2 typed answers" from the item's exercises (format only, no internal type names). */
+export function practiceLine(exercises = []) {
+  if (!exercises.length) return null;
+  const n = {};
+  for (const e of exercises) n[e.format] = (n[e.format] || 0) + 1;
+  const parts = Object.keys(FORMAT_COUNT).filter((f) => n[f]).map((f) => `${n[f]} ${FORMAT_COUNT[f][n[f] === 1 ? 0 : 1]}`);
+  return `${plural(exercises.length, 'practice question')}${parts.length ? `: ${parts.join(', ')}` : ''}`;
+}
+
+/** Plain label for a related item ("Used in", "Builds on", …), deduplicated so a two-way link shows once. */
+export function relatedItems(related = []) {
+  const label = (r) => ({ APPEARS_IN: r.outgoing ? 'Used in' : 'Contains', REQUIRES: r.outgoing ? 'Builds on' : 'Needed for', CONTRASTS_WITH: 'Easy to confuse with' }[r.rel] || 'Related to');
+  const seen = new Set();
+  return related.map((r) => ({ ...r, label: label(r) })).filter((r) => !seen.has(`${r.label}|${r.id}`) && seen.add(`${r.label}|${r.id}`));
+}
+
 // --- learning map: summary line and the card shown when an item is clicked
 const KIND_WORDS = { kana: ['letter (kana)', 'letters (kana)'], vocabulary: ['word', 'words'], grammar: ['grammar point', 'grammar points'], kanji: ['kanji', 'kanji'] };
 const kindCount = (k, n) => `${n} ${(KIND_WORDS[k] || ['item', 'items'])[n === 1 ? 0 : 1]}`;

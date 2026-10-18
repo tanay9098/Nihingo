@@ -15,7 +15,7 @@ import { appMode } from '../server/config.js';
 import { hashPassword, verifyPassword, normalizeEmail } from '../server/services/auth.js';
 import { GoogleAuth } from '../server/services/google.js';
 import { plainReason } from '../server/agents/tutor.js';
-import { describeEvent, prefText, proceduralText, evidenceLines, mapSummary, itemInfo } from '../public/js/utils.js';
+import { describeEvent, prefText, proceduralText, evidenceLines, mapSummary, itemInfo, practiceLine, relatedItems } from '../public/js/utils.js';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
@@ -451,4 +451,24 @@ test('learning map info card: plain wording per item type, no ids or raw values'
   assert.equal(itemInfo({ id: 't:hiragana', label: 'hiragana', group: 'Topic' }).links[0][1], '#/library?tab=all&topic=hiragana');
   assert.equal(itemInfo({ id: 'r:1', label: 'kana.json', group: 'Resource' }).kind, 'Lesson source');
   assert.equal(itemInfo({ id: 'r:1', label: 'kana.json', group: 'Resource' }).links.length, 0);
+});
+
+test('library popup wording: practice questions by format and plain related labels, no internal names', () => {
+  const ex = [
+    { type: 'vocab_mc_meaning', format: 'multiple_choice', origin: 'generated-from-source' },
+    { type: 'vocab_mc_reading', format: 'multiple_choice', origin: 'generated-from-source' },
+    { type: 'recall_meaning', format: 'typed', origin: 'generated-from-source' },
+    { type: 'flashcard', format: 'flashcard', origin: 'generated-from-source' },
+  ];
+  assert.equal(practiceLine(ex), '4 practice questions: 2 multiple choice, 1 typed answer, 1 flashcard');
+  assert.equal(practiceLine([]), null);
+  assert.doesNotMatch(practiceLine(ex), /_|source/);
+  const rel = relatedItems([
+    { id: 'k:水', name: '水', rel: 'APPEARS_IN', outgoing: false },
+    { id: 'v:今日', name: '今日', rel: 'APPEARS_IN', outgoing: true },
+    { id: 'g-masu', name: '〜ます', rel: 'REQUIRES', outgoing: true },
+    { id: 'g-de', name: 'で', rel: 'CONTRASTS_WITH', outgoing: false },
+    { id: 'g-de', name: 'で', rel: 'CONTRASTS_WITH', outgoing: true },
+  ]);
+  assert.deepEqual(rel.map((r) => `${r.label}: ${r.name}`), ['Contains: 水', 'Used in: 今日', 'Builds on: 〜ます', 'Easy to confuse with: で']);
 });
