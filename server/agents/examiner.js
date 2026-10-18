@@ -2,6 +2,7 @@
 // Chooses exercises (from recommendation + learner memory), evaluates answers against explicit rules and
 // returns a structured result. It performs NO writes to learner memory: persistence is the Planner's job.
 import { gradeAnswer } from './grade.js';
+import { PATHWAY } from './pathway.js';
 
 const hashStr = (str) => { let x = 2166136261; for (const ch of str) { x ^= ch.codePointAt(0); x = Math.imul(x, 16777619); } return x >>> 0; };
 
@@ -32,6 +33,12 @@ export class ExaminerAgent {
     const recent = new Set(await this.memory.recentExerciseIds(learnerId, 30));
     const used = new Set();
     const usedTypes = new Map();
+    // Several exercises of one concept share a prompt (e.g. a vocabulary word as MC, typed and flashcard), so a session
+    // shows each prompt once and spreads its questions over concepts; both are relaxed only if the session can't be filled.
+    const usedPrompts = new Set();
+    const usedConcepts = new Map();
+    let allowSamePrompt = false;
+    const promptKey = (e) => String(e.prompt ?? e.id).trim();
     const picks = [];
 
     const candidatesFor = async (conceptIds) => {
@@ -40,19 +47,30 @@ export class ExaminerAgent {
       for (const r of rows) (by[r.conceptId] ??= []).push(r);
       return by;
     };
+    // Not having seen an exercise recently outweighs an inferred format affinity, but never an explicit format choice.
+    const unseen = prefs.formatSource === 'explicit' ? 1.5 : 3;
     const score = (e) => (
-      (prefs.format && e.format === prefs.format ? 2 : 0) + (recent.has(e.id) ? 0 : 1)
+      (prefs.format && e.format === prefs.format ? 2 : 0) + (recent.has(e.id) ? 0 : unseen)
       + (usedTypes.get(e.type) ? 0 : 0.5) + (e.format === 'flashcard' && prefs.format !== 'flashcard' ? -1 : 0)
     );
     const pickFor = (list, reason) => {
-      const avail = list.filter((e) => !used.has(e.id));
+      const avail = list.filter((e) => !used.has(e.id) && (allowSamePrompt || !usedPrompts.has(promptKey(e))));
       if (!avail.length) return false;
       avail.sort((a, b) => score(b) - score(a) || hashStr(a.id) - hashStr(b.id));
       const e = avail[0];
       used.add(e.id);
+      usedPrompts.add(promptKey(e));
+      usedConcepts.set(e.conceptId, (usedConcepts.get(e.conceptId) ?? 0) + 1);
       usedTypes.set(e.type, (usedTypes.get(e.type) ?? 0) + 1);
       picks.push({ id: e.id, reason, conceptId: e.conceptId });
       return true;
+    };
+    // one pass over the concepts, at most one more question each, least-used concepts first
+    const roundFor = (ids, cands, reason) => {
+      let added = false;
+      const order = [...ids].sort((a, b) => (usedConcepts.get(a) ?? 0) - (usedConcepts.get(b) ?? 0));
+      for (const id of order) if (picks.length < n && pickFor(cands[id] ?? [], reason)) added = true;
+      return added;
     };
 
     // 1) targeted slots: focus concepts, round-robin
@@ -76,9 +94,13 @@ export class ExaminerAgent {
     const stage = snapshot.pathway?.current;
     const newWhy = pathIds.length && stage ? `New material · Step ${stage.step}: ${stage.title}` : 'New material';
     if (pathIds.length && primary.activity === 'new_material') {
+      // widen the pool to the next n items of the same step, so n questions don't cycle over the 3 recommended ones
+      const step = PATHWAY.find((s) => s.id === stage?.id);
+      if (step && step.id !== 'grammar' && step.id !== 'n5') {
+        for (const x of await this.memory.nextInStep(learnerId, step, n)) if (!pathIds.includes(x.id)) pathIds.push(x.id);
+      }
       const pc = await candidatesFor(pathIds);
-      let added = true;
-      while (picks.length < n && added) { added = false; for (const id of pathIds) if (picks.length < n && pickFor(pc[id] ?? [], newWhy)) added = true; }
+      while (picks.length < n && roundFor(pathIds, pc, newWhy)) { /* keep filling */ }
     } else {
       const fresh = (pathIds.length ? pathIds : [...snapshot.nextGrammar.slice(0, 1), ...snapshot.nextVocab.slice(0, 3)].map((x) => x.id))
         .filter((id) => !focusIds.includes(id));
@@ -87,15 +109,18 @@ export class ExaminerAgent {
         for (const id of fresh) if (picks.length < n) pickFor(fc[id] ?? [], newWhy);
       }
     }
-    // 4) top up from the focus pool, then anything
-    if (picks.length < n) {
-      for (const id of focusIds) while (picks.length < n && pickFor(focusCands[id] ?? [], 'More practice')) { /* keep filling */ }
-    }
-    if (picks.length < n) {
-      const nv = await this.memory.nextVocabulary(learnerId, n * 2);
-      const nc = await candidatesFor(nv.map((x) => x.id));
-      for (const x of nv) if (picks.length < n) pickFor(nc[x.id] ?? [], 'New material');
-    }
+    // 4) top up from the focus pool (spread over its concepts), then anything; if that still can't fill the session,
+    //    allow a prompt that was already shown rather than returning fewer questions
+    const topUp = async () => {
+      while (picks.length < n && roundFor(focusIds, focusCands, 'More practice')) { /* keep filling */ }
+      if (picks.length < n) {
+        const nv = await this.memory.nextVocabulary(learnerId, n * 2);
+        const nc = await candidatesFor(nv.map((x) => x.id));
+        for (const x of nv) if (picks.length < n) pickFor(nc[x.id] ?? [], 'New material');
+      }
+    };
+    await topUp();
+    if (picks.length < n) { allowSamePrompt = true; await topUp(); }
     return { picks: picks.slice(0, n), format: prefs.format, formatSource: prefs.formatSource, n, candidates: Object.values(focusCands).flat().length };
   }
 

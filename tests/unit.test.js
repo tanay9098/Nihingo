@@ -5,6 +5,7 @@ import { updateStudyState, wilsonLower, EMPTY_STATE, inferBestFormat, DAY_MS } f
 import { parseDelimited, parseTable } from '../server/ingestion/csv.js';
 import { classifyTable } from '../server/ingestion/mapping.js';
 import { decide } from '../server/agents/planner.js';
+import { ExaminerAgent } from '../server/agents/examiner.js';
 import { buildPathway, PATHWAY } from '../server/agents/pathway.js';
 import { vocabularyExercises, grammarExercises } from '../server/ingestion/exercises.js';
 import { grammarRowRecord } from '../server/ingestion/records.js';
@@ -353,4 +354,69 @@ test('plainReason rewords recommendation reasons stored before the plain-languag
   assert.match(plainReason('It builds on “〜ます”, which your memory estimates at only 0.38 — so today starts there.'), /which you know only about 38% — so/);
   assert.match(plainReason('It builds on “x”, which your memory shows you have not practised yet — so'), /which you have not practised yet/);
   assert.equal(plainReason('Nothing to change.'), 'Nothing to change.');
+});
+
+// Examiner selection with an in-memory stand-in for the graph: kana concepts k1..k6 (two prompts each) and a
+// vocabulary word v1 whose exercises all share the prompt "猫".
+function examinerFixture({ recent = [] } = {}) {
+  const ex = [];
+  for (let i = 1; i <= 6; i++) {
+    ex.push({ id: `ex:kana:mc_romaji:k${i}`, type: 'kana_mc_romaji', format: 'multiple_choice', prompt: `k${i}`, conceptId: `k${i}` });
+    ex.push({ id: `ex:kana:mc_char:k${i}`, type: 'kana_mc_char', format: 'multiple_choice', prompt: `k${i} (hiragana)`, conceptId: `k${i}` });
+  }
+  for (const [t, f] of [['vocab_mc_meaning', 'multiple_choice'], ['recall_meaning', 'typed'], ['flashcard', 'flashcard'], ['vocab_mc_reading', 'multiple_choice']]) {
+    ex.push({ id: `ex:vocab:${t}:v1`, type: t, format: f, prompt: '猫', conceptId: 'v1' });
+  }
+  ex.push({ id: 'ex:vocab:en_to_jp:v1', type: 'vocab_en_to_jp', format: 'multiple_choice', prompt: 'cat', conceptId: 'v1' });
+  const memory = {
+    contrastPartners: async () => [],
+    recentExerciseIds: async () => recent,
+    exercisesForConcepts: async (ids) => ex.filter((e) => ids.includes(e.conceptId)),
+    nextInStep: async (_lid, _step, limit) => ['k1', 'k2', 'k3', 'k4', 'k5', 'k6'].slice(0, limit).map((id) => ({ id, name: id })),
+    nextVocabulary: async () => [{ id: 'v1', name: '猫' }],
+  };
+  return { examiner: new ExaminerAgent({ memory }), prompt: Object.fromEntries(ex.map((e) => [e.id, e.prompt])) };
+}
+const hiraganaStage = { id: 'hiragana', step: 1, title: 'Hiragana' };
+
+test('examiner: a new-material session covers new concepts instead of cycling over the three recommended ones', async () => {
+  const { examiner, prompt } = examinerFixture();
+  const { picks } = await examiner.selectExercises({
+    learnerId: 'l', prefs: { session_length: 5, format: null },
+    recommendations: [{ role: 'study', activity: 'new_material', evidence: { focus: [{ id: 'k1', name: 'k1' }, { id: 'k2', name: 'k2' }, { id: 'k3', name: 'k3' }] } }],
+    snapshot: { pathNext: [{ id: 'k1' }, { id: 'k2' }, { id: 'k3' }], pathway: { current: hiraganaStage }, due: [], nextGrammar: [], nextVocab: [] },
+  });
+  assert.equal(picks.length, 5);
+  assert.equal(new Set(picks.map((p) => p.conceptId)).size, 5, 'one question per concept');
+  assert.equal(new Set(picks.map((p) => prompt[p.id])).size, 5, 'no repeated prompt');
+  assert.ok(picks.every((p) => p.reason === 'New material · Step 1: Hiragana'));
+});
+
+test('examiner: a revision session never repeats a prompt, and fills up with repeats only as a last resort', async () => {
+  const { examiner, prompt } = examinerFixture();
+  const run = (n) => examiner.selectExercises({
+    learnerId: 'l', prefs: { session_length: n, format: null },
+    recommendations: [{ role: 'study', activity: 'revise_concept', evidence: { focus: [{ id: 'v1', name: '猫' }] } }],
+    snapshot: { pathNext: [{ id: 'k1' }], pathway: { current: hiraganaStage }, due: [], nextGrammar: [], nextVocab: [] },
+  });
+  const { picks } = await run(3);
+  assert.equal(picks.length, 3);
+  assert.equal(new Set(picks.map((p) => prompt[p.id])).size, 3, 'no repeated prompt');
+  assert.equal(picks.filter((p) => p.conceptId === 'v1').length, 2, 'still revises the focus word, with its two distinct prompts');
+  // 5 questions but only 3 distinct prompts reachable: the session is still filled, by repeating a prompt
+  const big = await run(5);
+  assert.equal(big.picks.length, 5);
+  assert.equal(new Set(big.picks.map((p) => p.id)).size, 5, 'an exercise is still never shown twice');
+  assert.deepEqual(big.picks.slice(0, 3).map((p) => p.id), picks.map((p) => p.id), 'distinct prompts come first');
+});
+
+test('examiner: recently seen exercises lose to unseen ones unless the learner chose that format explicitly', async () => {
+  const { examiner } = examinerFixture({ recent: ['ex:vocab:recall_meaning:v1'] });
+  const run = (formatSource) => examiner.selectExercises({
+    learnerId: 'l', prefs: { session_length: 1, format: 'typed', formatSource },
+    recommendations: [{ role: 'study', activity: 'revise_concept', evidence: { focus: [{ id: 'v1', name: '猫' }] } }],
+    snapshot: { pathNext: [], pathway: { current: null }, due: [], nextGrammar: [], nextVocab: [] },
+  });
+  assert.notEqual((await run('inferred')).picks[0].id, 'ex:vocab:recall_meaning:v1');
+  assert.equal((await run('explicit')).picks[0].id, 'ex:vocab:recall_meaning:v1');
 });

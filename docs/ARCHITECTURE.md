@@ -240,7 +240,9 @@ The agents never call each other with data; they hand off **ids** and re-read th
 3. **Examiner** chooses N exercises (N = `session_length` preference): targeted slots (≥ 2, ~60 % of N) for the focus concepts — for
    `revise_concept` it also adds the focus's `CONTRASTS_WITH` partner (a `contrast_revision` already has both in its focus) — then other overdue items,
    then new material from the learner's current learning-path step (in a `new_material` session there are no targeted slots and the step's next items
-   are picked round-robin), then top-ups. Format follows explicit > inferred preference; recently-seen exercises are de-prioritised. Writes `SELECTED` edges.
+   are picked round-robin over the step's next N items), then top-ups spread over the focus concepts. A session never shows the same prompt twice
+   (several exercises of one concept share a prompt) unless it can't otherwise be filled. Format follows explicit > inferred preference;
+   recently-seen exercises are de-prioritised (above an inferred format, below an explicit one). Writes `SELECTED` edges.
 4. Learner answers → `POST /api/attempts` (client-generated `attemptId`).
 5. **Examiner** grades it with explicit rules (`server/agents/grade.js`): exact choice; kana-normalised typed answers (katakana→hiragana,
    romaji accepted where listed); meaning recall with variants and a 1-edit typo tolerance (answers ≥ 5 characters) **flagged as ambiguous**;
