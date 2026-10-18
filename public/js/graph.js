@@ -2,7 +2,7 @@
 import { h, svg, clear, pct, STATUS_LABEL } from './utils.js';
 
 const W = 640, H = 460, CX = W / 2, CY = H / 2;
-const GROUP_LABEL = { Learner: 'Learner', vocabulary: 'Vocabulary', grammar: 'Grammar', kanji: 'Kanji', kana: 'Kana', Topic: 'Topic', Lesson: 'Lesson', Recommendation: 'Recommendation', LearningPreference: 'Preference', Resource: 'Resource' };
+const GROUP_LABEL = { Learner: 'Learner', vocabulary: 'Vocabulary', grammar: 'Grammar', kanji: 'Kanji', kana: 'Letter (kana)', Topic: 'Topic', Lesson: 'Lesson', Recommendation: 'Recommendation', LearningPreference: 'Preference', Resource: 'Lesson source' };
 
 export function layout(data) {
   const pos = new Map();
@@ -61,8 +61,9 @@ export function renderGraph(container, data, { onSelect, caption } = {}) {
       svg('text', { y: r + 13 }, n.label.length > 14 ? `${n.label.slice(0, 13)}…` : n.label),
       svg('title', {}, `${n.label} — ${GROUP_LABEL[n.group] || n.group}${n.mastery != null ? ` · ${pct(n.mastery)} known` : ''}`));
     if (onSelect && !n.center) {
-      g.addEventListener('click', () => onSelect(n.id));
-      g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onSelect(n.id); } });
+      const pick = () => { root.querySelector('.node.selected')?.classList.remove('selected'); g.classList.add('selected'); onSelect(n.id, n); };
+      g.addEventListener('click', pick);
+      g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); } });
     }
     root.append(g);
   }
@@ -74,5 +75,5 @@ function legend(data) {
   const seen = [...new Set(data.nodes.map((n) => n.group))];
   const sw = (g) => { const s = svg('svg', { width: 12, height: 12, 'aria-hidden': 'true' }, svg('circle', { cx: 6, cy: 6, r: 6, class: `g-${g}` })); return s; };
   return h('div', { class: 'legend' }, seen.map((g) => h('span', {}, sw(g), ' ', GROUP_LABEL[g] || g)),
-    h('span', {}, 'Line colour: ', h('b', {}, 'red'), ' needs revision · ', h('b', {}, 'green'), ' strong'));
+    h('span', {}, 'Line colour: ', ['struggling', 'learning', 'mastered'].map((st, i) => [i ? ' · ' : '', h('b', { class: `line-${st}` }, STATUS_LABEL[st])])));
 }

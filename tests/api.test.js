@@ -184,6 +184,8 @@ test('api: every account has its own learning path; other learners are unreachab
   // a concept both have touched never leads to the other learner
   const g = (await call('GET', `/api/graph/neighborhood?center=${encodeURIComponent(conceptId)}&depth=2&all=1&limit=80`, null, B)).json.data;
   assert.ok(g.nodes.every((n) => n.id !== a.learnerId && n.group !== 'Account' && n.group !== 'AuthSession'), 'no other learner or account nodes');
+  const noSrc = (await call('GET', `/api/graph/neighborhood?center=${encodeURIComponent(conceptId)}&depth=2&sources=0`, null, B)).json.data;
+  assert.ok(noSrc.nodes.every((n) => n.group !== 'Resource'), 'sources=0 hides source files');
 
   // listening logs: idempotent for the owner, refused for anyone else
   const lessonId = (await call('GET', '/api/listening', null, A)).json.data.lessons[0].id;

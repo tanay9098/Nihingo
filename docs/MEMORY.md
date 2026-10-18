@@ -22,7 +22,7 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
   (`learner:<uuid>`). Email + password is legacy (`PASSWORD_AUTH=1`). Visitors without any account see `learner:demo` (seeded, `isDemo: true`).
 * **Learning path**: Hiragana → Katakana → First words → Sentence patterns → First kanji → JLPT N5 extension (`pathway.js`), computed from `STUDIES` edges.
 * **Content**: `resources/original/` (MIT, curated), `resources/local/` (third-party JLPT N5 PDFs/CSV), `resources/external/lazybenkyou_videos.json` (15 videos).
-* **Tests**: 61 in `tests/` (unit, ingestion, api, workflow, auth), all passing on 2026-10-18 against a real FalkorDB module. Run with `FALKORDB_PORT=<port> npm test`.
+* **Tests**: 69 in `tests/` (unit, ingestion, api, workflow, auth), all passing on 2026-10-18 against a real FalkorDB module. Run with `FALKORDB_PORT=<port> npm test`.
 * **Boot**: `server/index.js` retries the database forever with backoff (`bootLoop`), so a late/misconfigured-then-fixed DB is picked up without a restart.
 * **Deploy**: Render web service (Docker); FalkorDB must be external (`FALKORDB_HOST` ≠ localhost). README → *Deploying on Render* lists the env vars.
 * **Not implemented / known gaps**: deleting a Google account; rate limit and per-learner lock are in-process
@@ -54,6 +54,27 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 ## Change log
 
 Newest first. One entry per change: date · summary · files · how it was tested.
+
+* **2026-10-18** · Learning map: summary line and info card. My progress now shows one plain sentence above the map (*You’re practising
+  3 letters (kana). い needs the most practice (about 30% known).*; `mapSummary` in `utils.js`, from the memory view's concepts: struggling items
+  first, then lowest mastery). Clicking a map item no longer jumps straight to re-centring: it highlights the item and opens a card below the map
+  (`itemInfo` in `utils.js`) with its type, status, % known, times practised and a one-line hint, plus *Show its links* (the old re-centre) and a
+  link: concepts → *Look it up in the library* (new deep link `#/library?item=<id>` opens the item dialog), topics → library filtered by topic,
+  lessons → Listening. `renderGraph`'s `onSelect` now also receives the node (`onSelect(id, node)`, additive; the Today mini-map is unchanged).
+  No server, API or schema change. Files: `public/js/{utils,memory,graph,library}.js`, `public/css/components.css`, `tests/unit.test.js` (2 new tests).
+  Tested: `FALKORDB_PORT=6380 npm test` (69/69 pass, none skipped) against FalkorDB (falkordblite module); My progress → click item → card → Show its
+  links / library deep link checked in Chromium (Playwright) at 1280 px and 390 px: no console errors, no horizontal scroll.
+
+* **2026-10-18** · Learning map in plain language. The map no longer shows source files (`kana.json`, PDF names) by default: new optional
+  query parameter `sources=0` on `GET /api/graph/neighborhood` (`LearningService.neighborhood({ sources: false })`) excludes `Resource` nodes;
+  without it the response is unchanged. My progress has a *Show lesson sources* checkbox (off by default); the Today mini-map always hides them.
+  Wording: depth options *Closest items only* / *Show more connections*, status line *Centred on X · N linked items*, legend *Letter (kana)* /
+  *Lesson source*, and the line-colour legend now lists all three statuses (*needs revision* red · *getting there* amber · *strong* green — amber was
+  missing), coloured like the lines. Lesson sources get their own colour (no longer the same grey as Topic); node labels have an outline so lines
+  don't run through them. Files: `server/services/learning.js`, `server/app.js`, `public/js/{graph,memory,dashboard}.js`, `public/css/components.css`,
+  `tests/workflow.test.js`, `tests/api.test.js` (new assertions), `docs/ARCHITECTURE.md`. Tested: `FALKORDB_PORT=6380 npm test` (67/67 pass, none
+  skipped) against FalkorDB (falkordblite module); My progress and Today checked in Chromium (Playwright) at 1280 px and 390 px: no console errors,
+  no horizontal scroll, source nodes appear only with the checkbox on.
 
 * **2026-10-18** · No repeated questions in a practice session. Cause: a vocabulary word has up to five exercises with the same prompt (MC
   meaning, typed recall, flashcard, MC/typed reading), a new-material session cycled over only the 3 recommended path items, the top-up exhausted one

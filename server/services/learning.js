@@ -176,9 +176,10 @@ export class LearningService {
     };
   }
 
-  /** A bounded graph around one node, as `viewer` may see it: never another learner, their records, or account data. */
-  async neighborhood(centerId, { depth = 1, limit = 40, all = false, viewer } = {}) {
-    const exclude = [...PRIVATE_LABELS, ...(all ? [] : ['Attempt', 'AgentEvent', 'ListeningLog', 'Mistake', 'LearningSession', 'Exercise', 'Recommendation', 'LearningPreference'])];
+  /** A bounded graph around one node, as `viewer` may see it: never another learner, their records, or account data.
+   *  `sources: false` also leaves out the source files (`Resource`) the content was ingested from. */
+  async neighborhood(centerId, { depth = 1, limit = 40, all = false, sources = true, viewer } = {}) {
+    const exclude = [...PRIVATE_LABELS, ...(all ? [] : ['Attempt', 'AgentEvent', 'ListeningLog', 'Mistake', 'LearningSession', 'Exercise', 'Recommendation', 'LearningPreference']), ...(sources ? [] : ['Resource'])];
     const nodes = new Map(); const edges = new Map();
     const labelRows = await this.client.read('MATCH (c {id: $id}) RETURN labels(c) AS labels, coalesce(c.name, c.word, c.char, c.title, c.id) AS name, c.learnerId AS owner LIMIT 1', { id: centerId });
     const c = labelRows[0];

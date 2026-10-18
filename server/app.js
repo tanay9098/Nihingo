@@ -288,7 +288,7 @@ export function createApp(ctx, cfg = config) {
   }));
   api.get('/graph/neighborhood', asyncH(async (req, res) => {
     const center = id(req.query.center || req.learnerId, 'center');
-    ok(res, await req.s.service.neighborhood(center, { depth: int(req.query.depth, 1, 1, 2), limit: int(req.query.limit, 40, 5, 80), all: req.query.all === '1', viewer: req.learnerId }));
+    ok(res, await req.s.service.neighborhood(center, { depth: int(req.query.depth, 1, 1, 2), limit: int(req.query.limit, 40, 5, 80), all: req.query.all === '1', sources: req.query.sources !== '0', viewer: req.learnerId }));
   }));
 
   // ----- feedback (procedural memory) and tutor Q&A

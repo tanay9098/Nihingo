@@ -106,14 +106,18 @@ textarea { width: 100%; min-height: 72px; }
 svg.graph { width: 100%; height: auto; display: block; max-height: 520px; }
 svg.graph .edge { stroke: var(--line); stroke-width: 1.5; fill: none; }
 svg.graph .edge.struggling { stroke: var(--bad); stroke-width: 2.5; } svg.graph .edge.mastered { stroke: var(--ok); stroke-width: 2.5; } svg.graph .edge.learning { stroke: var(--warn); }
-svg.graph text { font: 11px var(--font); fill: var(--ink); text-anchor: middle; pointer-events: none; }
+svg.graph text { font: 11px var(--font); fill: var(--ink); text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
 svg.graph .node { cursor: pointer; }
 svg.graph .node circle { stroke: var(--bg); stroke-width: 2; }
 svg.graph .node:focus-visible circle { stroke: var(--focus); stroke-width: 4; }
+svg.graph .node:focus { outline: none; } svg.graph .node.selected circle { stroke: var(--ink); stroke-width: 3; }
+.map-summary { font-weight: 600; margin: 0; } .map-info .row { align-items: center; } .map-info .close { margin-left: auto; }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: .8rem; color: var(--ink-2); padding: 8px 12px; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
 .g-Learner { fill: var(--accent); } .g-vocabulary { fill: var(--indigo); } .g-grammar { fill: var(--warn); } .g-kanji { fill: #7a4f9c; } .g-kana { fill: #3b8a8a; }
-.g-Topic { fill: var(--ink-2); } .g-Lesson { fill: var(--ok); } .g-Recommendation { fill: var(--accent); opacity: .7; } .g-LearningPreference { fill: #9a7b2e; } .g-node, .g-Resource { fill: var(--ink-2); }
+.g-Topic { fill: var(--ink-2); } .g-Lesson { fill: var(--ok); } .g-Recommendation { fill: var(--accent); opacity: .7; } .g-LearningPreference { fill: #9a7b2e; } .g-node { fill: var(--ink-2); } .g-Resource { fill: #6b7f8e; }
+.legend .line-struggling { color: var(--bad); } .legend .line-learning { color: var(--warn); } .legend .line-mastered { color: var(--ok); }
+.check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; } .check input { width: auto; margin: 0; }
 .pref-form { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 .pref-form label { display: grid; gap: 4px; font-weight: 600; font-size: .9rem; }
 

@@ -63,7 +63,7 @@ export async function render(main, { showError }) {
       : h('div', { class: 'empty' }, 'Nothing overdue.'));
 
   const mem = h('section', { class: 'card', 'aria-labelledby': 'mem-h' }, h('h2', { id: 'mem-h' }, 'My learning map'),
-    h('p', { class: 'small muted' }, 'Concepts this learner has studied (edge colour = estimated status). Click a node to explore.'),
+    h('p', { class: 'small muted' }, 'What you’ve practised so far. Line colour shows how well you know each item. Click an item to explore.'),
     h('div', { id: 'mini-graph' }, h('p', { class: 'loading' }, 'Loading map…')));
 
   clear(main).append(h('div', { class: 'stack' },
@@ -73,7 +73,7 @@ export async function render(main, { showError }) {
   const box = main.querySelector('#mini-graph');
   try {
     const { renderGraph } = await import('./graph.js');
-    const data = await api.neighborhood({ center: d.learner.id, depth: 1, limit: 28 });
+    const data = await api.neighborhood({ center: d.learner.id, depth: 1, limit: 28, sources: '0' });
     renderGraph(box, data, { caption: 'My learning map', onSelect: (id) => { location.hash = `#/memory?center=${encodeURIComponent(id)}`; } });
   } catch (err) {
     clear(box).append(h('p', { class: 'muted' }, `The map couldn’t be loaded (${err.message}). The rest of the page still works.`));
