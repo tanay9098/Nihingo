@@ -235,7 +235,7 @@ export class MemoryStore {
   async exercisesForConcepts(conceptIds) {
     const r = await this.c.query(
       `MATCH (e:Exercise)-[:TESTS]->(c:Concept) WHERE c.id IN $ids
-       RETURN e.id AS id, e.type AS type, e.format AS format, e.origin AS origin, c.id AS conceptId ORDER BY e.id`,
+       RETURN e.id AS id, e.type AS type, e.format AS format, e.origin AS origin, e.prompt AS prompt, c.id AS conceptId ORDER BY e.id`,
       { ids: conceptIds },
     );
     return r;

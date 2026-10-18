@@ -56,6 +56,7 @@ test('session 1: Tutor -> Examiner hand off through the graph; questions target 
   // new items in a revision session come from the learner's current learning-path step (Aiko has no kana yet)
   assert.ok(s1.exercises.some((e) => e.id.startsWith('ex:kana:') && e.reason === 'New material · Step 1: Hiragana'), 'new material follows the learning path');
   assert.ok(s1.exercises.every((e) => !('answer' in e) && !('accept' in e) && !('explanation' in e)), 'answers are never sent to the browser');
+  assert.equal(new Set(s1.exercises.map((e) => e.prompt)).size, s1.exercises.length, 'no question prompt is repeated in a session');
   const ev = await env.memory.events(L, { sessionId: 'test-s1' });
   assert.deepEqual(ev.map((e) => `${e.agent}:${e.action}`), ['tutor:retrieve_memory', 'tutor:recommend_and_explain', 'examiner:select_exercises']);
   assert.ok(ev[1].handoffFrom === ev[0].id && ev[2].handoffFrom === ev[1].id, 'events are chained by HANDED_OFF_TO');
@@ -146,6 +147,7 @@ test('procedural memory changes behaviour: explicit preference, inference and re
   const s = await env.service.startSession(L, 'test-s3');
   assert.equal(s.exercises.length, 3);
   assert.equal(s.exercises[0].format, 'typed');
+  assert.equal(new Set(s.exercises.map((e) => e.prompt)).size, 3, 'no question prompt is repeated in a session');
   await assert.rejects(planner.setPreference(L, 'session_length', '99'), /Invalid preference/);
   await planner.clearPreference(L, 'preferred_format');
   const prefs = await planner.preferences(L);

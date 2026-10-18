@@ -55,6 +55,17 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 
 Newest first. One entry per change: date · summary · files · how it was tested.
 
+* **2026-10-18** · No repeated questions in a practice session. Cause: a vocabulary word has up to five exercises with the same prompt (MC
+  meaning, typed recall, flashcard, MC/typed reading), a new-material session cycled over only the 3 recommended path items, the top-up exhausted one
+  focus concept before moving on, and "recently seen" (+1) lost to the format preference (+2). Fix in `ExaminerAgent.selectExercises`: a session
+  never picks two exercises with the same prompt (relaxed only as a last resort so the session is still filled); new material and top-ups go
+  round-robin, least-used concept first; a new-material session widens its pool to the step's next N items (`nextInStep`, selection only — the
+  recommendation and its text are unchanged); not-recently-seen now scores 3 (1.5 when the format is an explicit preference, so that still wins).
+  `MemoryStore.exercisesForConcepts` also returns `prompt` (additive). No API, schema or data change; no re-ingest. Files:
+  `server/agents/examiner.js`, `server/graph/memory.js`, `tests/unit.test.js` (3 new tests), `tests/workflow.test.js` (2 assertions),
+  `docs/ARCHITECTURE.md`. Tested: `FALKORDB_PORT=6380 npm test` (67/67 pass, none skipped) against FalkorDB (falkordblite module); the 3 new unit
+  tests fail on the old Examiner; `npm run demo:flow` OK.
+
 * **2026-10-18** · Plain language, part 2: the *Why this recommendation?* box (`evidenceLines` in `utils.js`) now says *Reason: …*, *How well you
   know it: about 8%*, *Easy to confuse with “で”* instead of rule ids, raw mastery, `Graph path: CONTRASTS_WITH/REQUIRES` and the memory version.
   Server wording: Planner reasons say “only about 8% learned” instead of “(estimated mastery 0.078)” (`planner.js`); Examiner reason
