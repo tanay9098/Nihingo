@@ -34,6 +34,8 @@ test('api: boots, serves the static frontend and consistent JSON envelopes', { s
   assert.match(html, /<html lang="en">/); assert.match(html, /type="module"/);
   assert.doesNotMatch(html, /react|vue|angular/i);
   assert.match(page.headers.get('content-security-policy'), /script-src 'self'/);
+  const js = await fetch(base + '/js/library.js');                 // static files must be revalidated so deploys show up at once
+  assert.match(js.headers.get('cache-control'), /max-age=0/); assert.ok(js.headers.get('etag'));
   const h = await call('GET', '/api/health');
   assert.equal(h.json.ok, true); assert.equal(h.json.data.falkordb.ok, true); assert.equal(h.json.data.mode, 'demo');
   assert.ok(h.json.data.counts.vocabulary >= 56);                  // 56 original words + whatever is in resources/local/
