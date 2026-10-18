@@ -15,7 +15,7 @@ import { appMode } from '../server/config.js';
 import { hashPassword, verifyPassword, normalizeEmail } from '../server/services/auth.js';
 import { GoogleAuth } from '../server/services/google.js';
 import { plainReason } from '../server/agents/tutor.js';
-import { describeEvent, prefText, proceduralText, evidenceLines } from '../public/js/utils.js';
+import { describeEvent, prefText, proceduralText, evidenceLines, mapSummary, itemInfo } from '../public/js/utils.js';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
@@ -419,4 +419,36 @@ test('examiner: recently seen exercises lose to unseen ones unless the learner c
   });
   assert.notEqual((await run('inferred')).picks[0].id, 'ex:vocab:recall_meaning:v1');
   assert.equal((await run('explicit')).picks[0].id, 'ex:vocab:recall_meaning:v1');
+});
+
+test('learning map summary: counts by kind in plain words and names the item that needs the most practice', () => {
+  assert.match(mapSummary([]), /haven’t practised anything yet/);
+  const kana = [
+    { id: 'kana:あ', name: 'あ', kind: 'kana', status: 'learning', mastery: 0.5 },
+    { id: 'kana:い', name: 'い', kind: 'kana', status: 'learning', mastery: 0.3 },
+    { id: 'kana:う', name: 'う', kind: 'kana', status: 'mastered', mastery: 0.9 },
+  ];
+  const s = mapSummary(kana);
+  assert.match(s, /You’re practising 3 letters \(kana\)\./);
+  assert.match(s, /You know 1 well\./);
+  assert.match(s, /い needs the most practice \(about 30% known\)/);
+  // a struggling item wins over a lower-mastery one that is only "getting there"
+  const mixed = [...kana, { id: 'v:水', name: '水', kind: 'vocabulary', status: 'struggling', mastery: 0.4 }, { id: 'g-ni', name: 'に', kind: 'grammar', status: 'learning', mastery: 0.2 }];
+  assert.match(mapSummary(mixed), /3 letters \(kana\), 1 word and 1 grammar point\./);
+  assert.match(mapSummary(mixed), /水 needs the most practice/);
+  assert.match(mapSummary([kana[2]]), /You know it well\.$/);
+  for (const t of [s, mapSummary(mixed)]) assert.doesNotMatch(t, /mastery|STUDIES|kana:|0\.\d/);
+});
+
+test('learning map info card: plain wording per item type, no ids or raw values', () => {
+  const studiedCard = itemInfo({ id: 'kana:う', label: 'う', group: 'kana' }, { status: 'struggling', mastery: 0.4, attempts: 3 });
+  assert.equal(studiedCard.kind, 'Letter (kana)');
+  assert.equal(studiedCard.lines[0], 'Needs revision · about 40% known · practised 3 times.');
+  assert.match(studiedCard.lines[1], /needs revision/);
+  assert.deepEqual(studiedCard.links, [['Look it up in the library', '#/library?item=kana%3A%E3%81%86']]);
+  assert.match(itemInfo({ id: 'v:水', label: '水', group: 'vocabulary' }).lines[0], /haven’t practised this yet/);
+  assert.equal(itemInfo({ id: 'v:水', label: '水', group: 'vocabulary' }, { status: 'new', mastery: 0, attempts: 1 }).lines[0], 'New · about 0% known · practised once.');
+  assert.equal(itemInfo({ id: 't:hiragana', label: 'hiragana', group: 'Topic' }).links[0][1], '#/library?tab=all&topic=hiragana');
+  assert.equal(itemInfo({ id: 'r:1', label: 'kana.json', group: 'Resource' }).kind, 'Lesson source');
+  assert.equal(itemInfo({ id: 'r:1', label: 'kana.json', group: 'Resource' }).links.length, 0);
 });

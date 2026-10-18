@@ -1,5 +1,5 @@
 import { api, isDemoView } from './api.js';
-import { h, clear, ago, plural, pct, toast, demoBadge, statusBadge, prefText, FORMAT_LABEL } from './utils.js';
+import { h, clear, ago, plural, pct, toast, demoBadge, statusBadge, prefText, mapSummary, itemInfo, FORMAT_LABEL } from './utils.js';
 import { timeline } from './learning.js';
 
 const PREFS = {
@@ -61,20 +61,33 @@ export async function render(main, { showError, rerender }) {
   const depthSel = h('select', { 'aria-label': 'How much to show' }, [['1', 'Closest items only'], ['2', 'Show more connections']].map(([v, l]) => h('option', { value: v }, l)));
   const sourcesBox = h('input', { type: 'checkbox', id: 'map-sources' });
   const label = h('span', { class: 'small muted' });
+  const info = h('div', { 'aria-live': 'polite' });
+  const studied = new Map(mem.semantic.concepts.map((c) => [c.id, c]));
+  const showInfo = (node) => {
+    const it = itemInfo(node, studied.get(node.id));
+    info.replaceChildren(h('div', { class: 'card flat stack map-info' },
+      h('div', { class: 'row' }, h('strong', { class: 'jp', lang: 'ja' }, it.title), h('span', { class: 'badge' }, it.kind),
+        h('button', { class: 'btn small ghost close', 'aria-label': 'Close', onclick: () => { info.replaceChildren(); gbox.querySelector('.node.selected')?.classList.remove('selected'); } }, '×')),
+      it.lines.map((l) => h('p', { class: 'small' }, l)),
+      h('div', { class: 'row' }, h('button', { class: 'btn small primary', onclick: () => loadGraph(node.id) }, 'Show its links'),
+        it.links.map(([text, href]) => h('a', { class: 'btn small', href }, text)))));
+  };
   const loadGraph = async (id) => {
+    info.replaceChildren();
     try {
       const { renderGraph } = await import('./graph.js');
       const data = await api.neighborhood({ center: id, depth: depthSel.value, limit: 50, sources: sourcesBox.checked ? '1' : '0' });
       label.textContent = `Centred on ${data.nodes.find((n) => n.center)?.label} · ${plural(Math.max(0, data.nodes.length - 1), 'linked item')}`;
-      renderGraph(gbox, data, { onSelect: loadGraph, caption: 'My learning map' });
+      renderGraph(gbox, data, { onSelect: (_, node) => showInfo(node), caption: 'My learning map' });
     } catch (err) { gbox.replaceChildren(h('p', { class: 'muted', style: null }, `The map couldn’t be loaded: ${err.message}`)); }
   };
   depthSel.addEventListener('change', () => loadGraph(center));
   sourcesBox.addEventListener('change', () => loadGraph(center));
   const explorer = h('div', { class: 'card stack' }, h('h2', {}, 'My learning map'),
-    h('p', { class: 'small muted' }, 'How your practice connects to what you’re learning. Click any item to see what it links to.'),
+    h('p', { class: 'small muted' }, 'How your practice connects to what you’re learning. Click any item to see how well you know it.'),
+    h('p', { class: 'map-summary' }, mapSummary(mem.semantic.concepts)),
     h('div', { class: 'row' }, depthSel, h('label', { class: 'check small', for: 'map-sources' }, sourcesBox, 'Show lesson sources'),
-      h('button', { class: 'btn small', onclick: () => loadGraph(mem.learner.id) }, 'Back to me'), label), gbox);
+      h('button', { class: 'btn small', onclick: () => loadGraph(mem.learner.id) }, 'Back to me'), label), gbox, info);
 
   // --- ask the tutor
   const ask = h('div', { class: 'card stack' }, h('h2', {}, 'Ask the tutor'),

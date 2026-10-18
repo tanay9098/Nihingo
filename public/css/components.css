@@ -110,6 +110,8 @@ svg.graph text { font: 11px var(--font); fill: var(--ink); text-anchor: middle; 
 svg.graph .node { cursor: pointer; }
 svg.graph .node circle { stroke: var(--bg); stroke-width: 2; }
 svg.graph .node:focus-visible circle { stroke: var(--focus); stroke-width: 4; }
+svg.graph .node:focus { outline: none; } svg.graph .node.selected circle { stroke: var(--ink); stroke-width: 3; }
+.map-summary { font-weight: 600; margin: 0; } .map-info .row { align-items: center; } .map-info .close { margin-left: auto; }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: .8rem; color: var(--ink-2); padding: 8px 12px; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
 .g-Learner { fill: var(--accent); } .g-vocabulary { fill: var(--indigo); } .g-grammar { fill: var(--warn); } .g-kanji { fill: #7a4f9c; } .g-kana { fill: #3b8a8a; }

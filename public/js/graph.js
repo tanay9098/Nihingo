@@ -61,8 +61,9 @@ export function renderGraph(container, data, { onSelect, caption } = {}) {
       svg('text', { y: r + 13 }, n.label.length > 14 ? `${n.label.slice(0, 13)}…` : n.label),
       svg('title', {}, `${n.label} — ${GROUP_LABEL[n.group] || n.group}${n.mastery != null ? ` · ${pct(n.mastery)} known` : ''}`));
     if (onSelect && !n.center) {
-      g.addEventListener('click', () => onSelect(n.id));
-      g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onSelect(n.id); } });
+      const pick = () => { root.querySelector('.node.selected')?.classList.remove('selected'); g.classList.add('selected'); onSelect(n.id, n); };
+      g.addEventListener('click', pick);
+      g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); } });
     }
     root.append(g);
   }

@@ -184,6 +184,57 @@ export function evidenceLines(rec) {
   return out;
 }
 
+// --- learning map: summary line and the card shown when an item is clicked
+const KIND_WORDS = { kana: ['letter (kana)', 'letters (kana)'], vocabulary: ['word', 'words'], grammar: ['grammar point', 'grammar points'], kanji: ['kanji', 'kanji'] };
+const kindCount = (k, n) => `${n} ${(KIND_WORDS[k] || ['item', 'items'])[n === 1 ? 0 : 1]}`;
+const joinAnd = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+
+/** One plain sentence about what the learner is practising and what needs the most work, from the memory view's concepts. */
+export function mapSummary(concepts = []) {
+  if (!concepts.length) return 'You haven’t practised anything yet. Start a session from Today and your map will grow.';
+  const counts = {};
+  for (const c of concepts) counts[c.kind] = (counts[c.kind] || 0) + 1;
+  const kinds = Object.keys(KIND_WORDS).filter((k) => counts[k]).concat(Object.keys(counts).filter((k) => !KIND_WORDS[k]));
+  let out = `You’re practising ${joinAnd(kinds.map((k) => kindCount(k, counts[k])))}.`;
+  const strong = concepts.filter((c) => c.status === 'mastered').length;
+  if (strong) out += ` You know ${strong === concepts.length ? (strong === 1 ? 'it' : 'all of them') : strong} well.`;
+  const open = concepts.filter((c) => c.status !== 'mastered');
+  const weakest = [...open].sort((a, b) => (b.status === 'struggling') - (a.status === 'struggling') || (a.mastery ?? 0) - (b.mastery ?? 0))[0];
+  if (weakest) out += ` ${weakest.name} needs the most practice (about ${pct(weakest.mastery)} known).`;
+  return out;
+}
+
+const GROUP_WORDS = { kana: 'Letter (kana)', vocabulary: 'Word', grammar: 'Grammar point', kanji: 'Kanji', Topic: 'Topic', Lesson: 'Listening lesson', Resource: 'Lesson source', Learner: 'Learner' };
+const STATUS_HINT = {
+  struggling: 'This one needs revision. It will come up again in your next sessions.',
+  learning: 'You’re getting there. It will come back for review so it sticks.',
+  mastered: 'You know this well. It will still come back now and then so you don’t forget it.',
+  new: 'You’ve only just started on this one.',
+};
+
+/** What the info card says about a clicked map item. `studied` is the learner's progress on it (from the memory view), if any. */
+export function itemInfo(node, studied) {
+  const kind = GROUP_WORDS[node.group] || 'Item';
+  const lines = [];
+  const links = [];
+  if (KIND_WORDS[node.group]) {
+    if (studied) {
+      lines.push(`${STATUS_LABEL[studied.status] ? `${STATUS_LABEL[studied.status][0].toUpperCase()}${STATUS_LABEL[studied.status].slice(1)} · ` : ''}about ${pct(studied.mastery)} known · practised ${studied.attempts === 1 ? 'once' : `${studied.attempts ?? 0} times`}.`);
+      if (STATUS_HINT[studied.status]) lines.push(STATUS_HINT[studied.status]);
+    } else lines.push('You haven’t practised this yet. It is linked to something you are learning.');
+    links.push(['Look it up in the library', `#/library?item=${encodeURIComponent(node.id)}`]);
+  } else if (node.group === 'Topic') {
+    lines.push('A topic groups related items. Show its links to see what belongs to it.');
+    links.push(['Browse this topic', `#/library?tab=all&topic=${encodeURIComponent(node.label)}`]);
+  } else if (node.group === 'Lesson') {
+    lines.push('A listening lesson that covers something you are learning.');
+    links.push(['Go to listening', '#/listening']);
+  } else if (node.group === 'Resource') {
+    lines.push('A file the app’s lessons were taken from.');
+  }
+  return { title: node.label, kind, lines, links };
+}
+
 export function whyBox(rec, open = false) {
   return h('details', { class: 'why', open }, h('summary', {}, 'Why this recommendation?'),
     h('ul', { class: 'evidence' }, evidenceLines(rec).map((l) => h('li', {}, l))));
