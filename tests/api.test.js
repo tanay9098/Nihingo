@@ -39,7 +39,7 @@ test('api: boots, serves the static frontend and consistent JSON envelopes', { s
 });
 
 test('api: no credentials or keys are ever exposed to the browser', { skip }, async () => {
-  const paths = ['/api/health', '/api/dashboard', '/api/resources', '/api/learner/memory', '/api/listening', '/api/recommendations', '/api/agents/timeline'];
+  const paths = ['/api/health', '/api/auth/me', '/api/dashboard', '/api/resources', '/api/learner/memory', '/api/listening', '/api/recommendations', '/api/agents/timeline'];
   for (const p of paths) {
     const r = await call('GET', p);
     assert.equal(r.status, 200, p);
@@ -120,6 +120,7 @@ test('api: sign up, sign in and sign out; guests stay on the demo learner', { sk
   assert.equal(me.signedIn, true); assert.equal(me.email, 'kenji@example.com'); assert.equal(me.learner.name, 'Kenji');
   assert.match(me.learner.id, /^learner:[0-9a-f-]{36}$/);
   assert.ok(!a.text.includes('correct horse') && !a.text.includes('scrypt'), 'no password material in the response');
+  assert.ok(!a.text.includes(SECRET) && !a.text.includes('KEY-should-never-leak'), 'sign-up leaked a secret');
   const stored = await client.query('MATCH (x:Account {email: $e}) RETURN x.passwordHash AS h', { e: 'kenji@example.com' });
   assert.match(stored[0].h, /^scrypt\$/);
 

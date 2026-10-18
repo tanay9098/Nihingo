@@ -4,12 +4,13 @@ A Japanese-learning companion that **remembers** what a learner has studied and 
 Persistent **FalkorDB** graph memory + three coordinated agents (**Tutor**, **Examiner**, **Memory & Planner**) —
 built for the FalkorDB hackathon, **Track 2: Agent Memory and Coordination**.
 
-* Vanilla HTML/CSS/JS frontend (no framework, no build step, ~60 kB of unminified JS, loaded per page) · Node + Express backend · FalkorDB via the official `falkordb` client.
+* Vanilla HTML/CSS/JS frontend (no framework, no build step, ~70 kB of unminified JS, loaded per page) · Node + Express backend · FalkorDB via the official `falkordb` client.
 * Episodic, semantic and procedural memory in the graph; recommendations carry traceable evidence (“why this lesson?”).
+* **Learner accounts**: sign up / sign in with email + password; every account gets its own learner, so its learning path and memory are its own. Guests can try the seeded demo learner without an account.
 * Listening practice linked to verified [Lazy Benkyou](https://lazybenkyou.com/) videos (embedded via YouTube, never re-hosted).
 * **Demo mode** (default) needs no LLM key. **AI mode** is optional and clearly labelled.
 
-> Start with **[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)** for the 5-minute walkthrough, **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the graph schema and agent workflow,
+> Start with **[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)** for the 6-minute walkthrough, **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the graph schema and agent workflow,
 > and **[docs/RESOURCE_INVENTORY.md](docs/RESOURCE_INVENTORY.md)** for what content exists, where it comes from and its licensing.
 
 ## Quick start
@@ -20,6 +21,7 @@ cp .env.example .env          # optional: set FALKORDB_PASSWORD, LLM_*; defaults
 docker compose up --build
 ```
 Open <http://localhost:3002>. FalkorDB Browser is at <http://localhost:3000>. On first boot the app creates the schema, ingests `resources/`, and seeds the demo learner.
+You start as a guest on the demo learner; use **Create account** in the top bar to get your own learning path. Serving it over HTTPS? Set `COOKIE_SECURE=1` in `.env`.
 Data persists in the `falkordb_data` volume (AOF enabled). Add `--profile graphrag` to also start the optional GraphRAG-SDK sidecar.
 
 ### Option B — Node locally + FalkorDB in Docker
@@ -94,19 +96,25 @@ REST API (all JSON `{ok, data | error}`; learner from the session cookie, or the
 
 ## Verification status (honest)
 
-Run in the development sandbox on **Oct 17 2026**:
-* ✅ `npm test` — 47 tests (21 unit + 26 integration) pass against a **real FalkorDB module (v4.18.3)**: ingestion with the real CSV/JSON schemas, every recognised PDF study-list layout, local files never overwriting original content, unsupported/broken file handling, a real PDF with Japanese text,
+Run in the development sandbox on **Oct 17 2026**; the accounts feature was verified on **Oct 18 2026**:
+* ✅ `npm test` — 49 tests (22 unit + 27 integration) pass against a **real FalkorDB module (v4.18.3)**: ingestion with the real CSV/JSON schemas, every recognised PDF study-list layout, local files never overwriting original content, unsupported/broken file handling, a real PDF with Japanese text,
   repeat-ingestion without duplicates, learning-path order and next-step selection, idempotent attempts (including concurrent duplicates), memory change after an attempt, recommendation change after a session, agent handoff chain from stored events,
-  procedural preferences, listening logs, bounded graph queries, injection attempts, secrets not in any response or in browser code, DB-down behaviour.
+  procedural preferences, listening logs, bounded graph queries, injection attempts, secrets not in any response or in browser code, DB-down behaviour,
+  accounts (sign-up / sign-in / sign-out, duplicate email, wrong password, expired or forged sessions, cross-site writes, salted password hashes) and
+  learner isolation (two accounts never see or change each other's sessions, attempts, listening logs, timeline or graph neighbourhood; resetting progress keeps the account).
 * ✅ Real headless Chromium run of the UI (desktop 1200 px and mobile 390 px): all five pages load with **no console/CSP errors**, no horizontal overflow, and the two-session demo completes through the UI. This found and fixed a real bug (Unicode ids rejected by validation).
+  A second run (desktop 1100 px and mobile 375 px) covered the account flow: guest demo view → create account (with a too-short password first) → own empty learning path → switch to the demo learner and back →
+  sign out → wrong password → sign in again; the session cookie is `HttpOnly`/`SameSite=Lax` and unreadable from page scripts. It found and fixed a real bug (a slow earlier page could overwrite the page shown after it).
 * ✅ `docker compose config` validates the Compose file; the Lazy Benkyou links, channel feed and each video's embeddability (oEmbed) were checked live against YouTube.
 * ❌ **Not run here:** `docker compose up` / the Docker image build (no Docker daemon in the sandbox — the Dockerfile and Compose were written to the official docs, the `falkordb/falkordb:v4.18.9` tag was confirmed to exist on Docker Hub,
   but the volume path could not be read from the image, so Compose pins Redis' `--dir /data` explicitly); **AI mode** with a real LLM; the **GraphRAG-SDK** `ingest`/`completion` calls (only its API signatures and a live FalkorDB connection were verified);
   actual **YouTube playback** (the sandbox can't stream video; embeds and fallbacks are in place). There is no stroke *animation*: the stroke-order PDFs in `resources/local/` are linked by page, not parsed into strokes.
 
 ## Known limitations
-* Accounts are email + password only: no email verification, password reset or account deletion yet. The sign-in rate limit is in-process.
-  Set `COOKIE_SECURE=1` when serving over HTTPS. The old shared `learner:me` profile is removed on boot.
+* Accounts are email + password only: no email verification, password reset or account deletion yet. Set `COOKIE_SECURE=1` when serving over HTTPS.
+  The old shared `learner:me` profile (“My profile”) no longer exists and is removed on boot, with its history.
+* The sign-in rate limit (20 attempts per 10 min per client IP) is in-process: it resets on restart and isn't shared between instances. Behind a reverse proxy,
+  configure Express `trust proxy`, otherwise every user is seen with the proxy's IP and they all share one limit.
 * The original content is small by design (56 words, 26 kanji, 16 grammar points, 92 kana). With the JLPT N5 files in `resources/local/` the library holds 856 words, 103 kanji and 152 grammar points;
   that material comes from third-party lists (see `docs/RESOURCE_INVENTORY.md`) and carries their quirks. Stroke order is linked as **pages** of the reference PDFs (79 kanji, 92 kana), never animated or verified.
 * The per-learner write lock is in-process (single app instance).
@@ -126,7 +134,11 @@ Run in the development sandbox on **Oct 17 2026**:
 | PDFs show as “linked” only | Install `poppler-utils` (`pdftotext`, `pdfinfo`). Image-only PDFs can't be text-extracted. |
 | YouTube video won't play | Offline/blocked/embedding disabled: use the “Open it on YouTube” link. The rest of the app is unaffected. |
 | `npm test` skips integration tests | They need a reachable FalkorDB (`FALKORDB_PORT=…`). Skips are reported as skipped, not passed. |
-| Start over | Memory → *Restore seeded demo* / *Delete my progress*, or `docker compose down -v` to drop the database volume. |
+| Sign-in seems to work, but your path shows the demo learner's data, or you are a guest again after a reload | `COOKIE_SECURE=1` while the page is served over plain `http://`: the browser refuses the `Secure` session cookie. Use HTTPS, or set `COOKIE_SECURE=0` for local use. |
+| “Your sign-in has expired. Please sign in again.” | The session is older than `SESSION_TTL_DAYS` (default 30), or you signed out in another tab. Sign in again; your learning path is kept. |
+| “Too many attempts” when signing in or up | More than 20 tries in 10 minutes from one IP. Wait, or restart the app (the counter is in-process). Behind a proxy see *Known limitations*. |
+| Forgot a password | There is no password reset yet; create a new account (its learning path starts empty). |
+| Start over | Memory → *Restore seeded demo* (demo learner) / *Delete my progress* (your account; the account itself is kept), or `docker compose down -v` to drop the database volume, which also deletes all accounts. |
 
 ## License
 MIT for the code and original content (see `LICENSE`). Lazy Benkyou content is © Lazy Benkyou Studios LLC and is only linked/embedded.
