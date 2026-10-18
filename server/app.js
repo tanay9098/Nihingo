@@ -314,7 +314,8 @@ export function createApp(ctx, cfg = config) {
 
   app.use('/api', api);
   app.use('/api', (req, res) => res.status(404).json({ ok: false, error: { code: 'not_found', message: 'No such endpoint' } }));
-  app.use(express.static(cfg.publicDir, { maxAge: '1h', etag: true, extensions: ['html'] }));
+  // max-age 0: browsers revalidate every file (cheap 304 via ETag), so a new deploy shows up on the next load
+  app.use(express.static(cfg.publicDir, { maxAge: 0, etag: true, extensions: ['html'] }));
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {

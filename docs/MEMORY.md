@@ -55,6 +55,11 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 
 Newest first. One entry per change: date · summary · files · how it was tested.
 
+* **2026-10-18** · Static frontend files are now served with `Cache-Control: public, max-age=0` (was `max-age=3600`) plus ETag, so browsers
+  revalidate on every load (304 when unchanged) and a new deploy shows up immediately instead of after up to an hour. Files: `server/app.js`,
+  `tests/api.test.js` (asserts `max-age=0` and an ETag on `/js/library.js`). Tested: `FALKORDB_PORT=6380 npm test` (61/61 pass, none skipped);
+  `curl` with `If-None-Match` against a local server returns 304.
+
 * **2026-10-18** · Removed the developer hint "npm run ingest" from the four learner-facing messages (empty library list, empty listening page,
   kanji detail without stroke-order file, stroke-order tab without files); visitors on the hosted app can't run it, and the empty library list is
   usually caused by an active topic filter, not missing data. Topic filter behaviour unchanged. Files: `public/js/library.js`, `public/js/listening.js`.
