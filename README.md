@@ -1,8 +1,7 @@
 # Nihongo Graph
 
 A Japanese-learning companion that **remembers** what a learner has studied and adapts the next lesson.
-Persistent **FalkorDB** graph memory + three coordinated agents (**Tutor**, **Examiner**, **Memory & Planner**) —
-built for the FalkorDB hackathon, **Track 2: Agent Memory and Coordination**.
+Persistent **FalkorDB** graph memory + three coordinated agents (**Tutor**, **Examiner**, **Memory & Planner**).
 
 * Vanilla HTML/CSS/JS frontend (no framework, no build step, ~70 kB of unminified JS, loaded per page) · Node + Express backend · FalkorDB via the official `falkordb` client.
 * Episodic, semantic and procedural memory in the graph; recommendations carry traceable evidence (“why this lesson?”).

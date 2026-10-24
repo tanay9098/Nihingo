@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Product** | Nihongo Graph — a Japanese-learning companion with persistent graph memory |
-| **Status** | v1.0 built (FalkorDB hackathon, Track 2: Agent Memory and Coordination); this document records its requirements and the next steps |
+| **Status** | v1.0 built; this document records its requirements and the next steps |
 | **Related docs** | [README](../README.md) · [Architecture](ARCHITECTURE.md) · [Demo script](DEMO_SCRIPT.md) · [Resource inventory](RESOURCE_INVENTORY.md) |
 
 Requirement status: **✅ Done** (implemented and covered by tests or a UI run, see the README's *Verification status*) · **◐ Partial** · **☐ Planned**.
@@ -54,7 +54,7 @@ A study companion that **remembers** each learner in a graph (what they studied,
 | **P4 — Listening learner** | Wants comprehension practice alongside study. | Videos at a suitable level linked to what they study. | Lazy Benkyou videos linked by topic, comprehension ratings that feed back into revision. |
 
 ### Secondary users
-* **Guests / evaluators (hackathon judges, curious visitors):** browse the seeded demo learner without signing up.
+* **Guests / evaluators (curious visitors):** browse the seeded demo learner without signing up.
 * **Developers / self-hosters:** run the app with Docker or Node, add study material to `resources/`, optionally enable AI mode or the GraphRAG sidecar.
 
 ### Assumptions about users
@@ -78,7 +78,7 @@ A study companion that **remembers** each learner in a graph (what they studied,
 | US-10 | learner | ask the Tutor a question and get an answer from the course material | I get help without leaving the app |
 | US-11 | learner | create an account and come back to my own progress | my progress is saved and private |
 | US-12 | learner | delete my progress but keep my account | I can start over |
-| US-13 | guest / judge | explore a seeded demo learner without signing up | I can evaluate the product quickly |
+| US-13 | guest | explore a seeded demo learner without signing up | I can evaluate the product quickly |
 | US-14 | learner | see the agents' timeline and my memory graph | I understand what the system knows about me |
 
 ## 6. Functional requirements
@@ -205,7 +205,7 @@ These metrics can be computed from data already in the graph (sessions, attempts
 
 ## 10. Constraints and assumptions
 
-* Built for the FalkorDB hackathon, Track 2; FalkorDB is the only data store.
+* FalkorDB is the only data store.
 * Recommendations must stay rule-based and explainable; an LLM may never decide what to study.
 * Content is limited to what the provided files and linked videos contain; nothing is invented.
 * A path step counts as *completed* once every item has been practised at least once (not mastered).

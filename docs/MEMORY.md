@@ -6,7 +6,7 @@ Read this first. It summarises the project so you don't need to read the whole c
 ## What this is
 
 **Nihongo Graph** — a Japanese-learning web app that remembers what a learner studied and adapts the next lesson.
-Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learner memory is a FalkorDB graph; three agents
+Learner memory is a FalkorDB graph; three agents
 (Tutor, Examiner, Memory & Planner) coordinate only through that graph.
 
 ## Current state (as of 2026-10-18)
@@ -55,6 +55,10 @@ Built for the FalkorDB hackathon, Track 2 (Agent Memory and Coordination). Learn
 
 Newest first. One entry per change: date · summary · files · how it was tested.
 
+* **2026-10-24** · Removed every hackathon / "Track 2" mention: README intro, app footer (`public/index.html`), MEMORY.md,
+  PRD.md (status, secondary users, US-13, constraints) and the ARCHITECTURE.md heading (now "Agent coordination workflow").
+  Text-only. Tested: `npm test` against FalkorDB (falkordb/falkordb:latest), 69/70 pass; the one failure (listening `saved`
+  toggle, `tests/workflow.test.js:169`) fails identically without this change.
 * **2026-10-18** · Library item popup without technical words or sources. Removed from the popup: the per-item *Sources:* line (file names,
   row/page, licence text), the stroke-order box (raw PDF file names, and for kanji the "drop a PDF into resources/local/" note), "Level: not
   labelled" (row hidden when the level is unknown) and the exercise chips with internal type names (`vocab_mc_meaning ×1 · generated from source`).

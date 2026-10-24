@@ -229,7 +229,7 @@ Because FalkorDB properties can only be primitives/arrays, structured values (ch
 Files are processed CSV/TSV first, then JSON, JSONL, other, PDFs last. A file whose checksum is unchanged (and whose last ingestion did not error) is skipped unless `--force`.
 Unsupported or broken files are recorded as `Resource` nodes with a status and notes; they never abort ingestion. Provenance/licence per file comes from `resources/sources.json`.
 
-## Agent coordination (the Track-2 workflow)
+## Agent coordination workflow
 
 The agents never call each other with data; they hand off **ids** and re-read the graph.
 
