@@ -1,13 +1,12 @@
 # Nihongo Graph
 
-A Japanese-learning companion that **remembers** what a learner has studied and adapts the next lesson.
+A Japanese-learning application that **remembers** what a learner has studied and adapts the next lesson.
 Persistent **FalkorDB** graph memory + three coordinated agents (**Tutor**, **Examiner**, **Memory & Planner**).
 
-* Vanilla HTML/CSS/JS frontend (no framework, no build step, ~70 kB of unminified JS, loaded per page) · Node + Express backend · FalkorDB via the official `falkordb` client.
+* HTML,CSS, and vanilla JS as frontend. Node + Express as backend · FalkorDB via the official `falkordb` client.
 * Episodic, semantic and procedural memory in the graph; recommendations carry traceable evidence (“why this lesson?”).
 * **Learner accounts**: sign in with Google (no password), or continue as a guest whose progress is kept in this browser; every account gets its own learner, so its learning path and memory are its own. A guest who later signs in with Google keeps their progress. Without either, visitors can browse the seeded demo learner.
 * Listening practice linked to verified [Lazy Benkyou](https://lazybenkyou.com/) videos (embedded via YouTube, never re-hosted).
-* **Demo mode** (default) needs no LLM key. **AI mode** is optional and clearly labelled.
 
 > See **[docs/PRD.md](docs/PRD.md)** for the product requirements (goals, target users, features and requirements).
 > Start with **[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)** for the 6-minute walkthrough, **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the graph schema and agent workflow,
